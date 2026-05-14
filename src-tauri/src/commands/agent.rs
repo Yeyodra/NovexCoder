@@ -6,7 +6,7 @@ use crate::{
     agents::runner::{AgentRunner, AgentRunParams},
     error::AppResult,
     models::{AgentConfig, AgentRun, ToolCall},
-    services::agent_service,
+    services::agent_service::{self, SelectableAgent},
     state::AppState,
 };
 
@@ -128,4 +128,18 @@ pub async fn agent_permission_response(
         log::warn!("No pending permission request for agent_run_id: {}", agent_run_id);
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn toggle_agent_selectable(
+    state: State<'_, AppState>,
+    agent_type: String,
+    is_selectable: bool,
+) -> AppResult<()> {
+    agent_service::toggle_agent_selectable(state.pool(), &agent_type, is_selectable).await
+}
+
+#[tauri::command]
+pub async fn list_selectable_agents(state: State<'_, AppState>) -> AppResult<Vec<SelectableAgent>> {
+    agent_service::list_selectable_agents(state.pool()).await
 }

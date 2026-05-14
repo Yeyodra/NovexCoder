@@ -2,7 +2,8 @@ import React, { useMemo, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { AgentRunWithTools, ToolCall } from '@/types';
+import { AgentRunWithTools, ToolCall, AGENT_LABELS } from '@/types';
+import { useCustomAgentStore } from '@/stores/useCustomAgentStore';
 import { ToolExecutionBlock } from './ToolExecutionBlock';
 import { ThinkingBlock } from './ThinkingBlock';
 import { MarkdownCodeBlock } from './MarkdownCodeBlock';
@@ -46,6 +47,7 @@ export function AgentRunCard({ run }: AgentRunCardProps) {
   const liveStream = run.streamingText.trim();
 
   // Get model name from agent config or default provider
+  const { customAgents } = useCustomAgentStore();
   const { agentConfigs } = useAgentStore();
   const { providers, selectedModelId } = useSettingsStore();
   const agentConfig = agentConfigs.find((c) => c.agentType === run.agentType);
@@ -120,7 +122,7 @@ export function AgentRunCard({ run }: AgentRunCardProps) {
       <div className="min-w-0 flex-1 space-y-3 pt-0.5">
         {/* Agent type + status */}
         <div className="flex items-center gap-1.5 text-[12px] text-[var(--text-muted)]">
-          <span className="font-medium">{run.agentType}</span>
+          <span className="font-medium">{AGENT_LABELS[run.agentType] || customAgents.find(a => a.agentType === run.agentType)?.name || run.agentType}</span>
           {isRunning && (
             <>
               <span className="text-[var(--text-subtle)]">·</span>

@@ -16,7 +16,7 @@ export const RightSidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="h-full bg-[var(--surface)] border-l border-[var(--border)] flex flex-col w-[var(--sidebar-width-right)]">
+    <aside className="h-full bg-[var(--bg)] border-l border-[var(--border)] flex flex-col w-[var(--sidebar-width-right)]">
       <div className="flex items-center border-b border-[var(--border)]">
         <button
           onClick={toggleRightSidebar}

@@ -1,3 +1,4 @@
+use serde::Serialize;
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
@@ -6,13 +7,21 @@ use crate::{
     models::{AgentConfig, AgentRun, ToolCall},
 };
 
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectableAgent {
+    pub agent_type: String,
+    pub name: String,
+    pub is_custom: bool,
+}
+
 use super::now_rfc3339;
 
 const AGENT_RUN_SELECT: &str =
     "id, session_id, agent_type, status, input, output, error, started_at, completed_at, created_at, parent_agent_run_id, project_path";
 const TOOL_CALL_SELECT: &str =
     "id, agent_run_id, tool_name, input, output, status, error, started_at, completed_at, created_at";
-const AGENT_CONFIG_SELECT: &str = "id, agent_type, provider_id, model_id, created_at, updated_at";
+const AGENT_CONFIG_SELECT: &str = "id, agent_type, provider_id, model_id, is_selectable, created_at, updated_at";
 
 pub async fn create_agent_run(
     db: &SqlitePool,
@@ -277,4 +286,53 @@ async fn get_tool_call(db: &SqlitePool, id: &str) -> AppResult<Option<ToolCall>>
     .await?;
 
     Ok(tool_call)
+}
+
+pub async fn toggle_agent_selectable(
+    db: &SqlitePool,
+    agent_type: &str,
+    is_selectable: bool,
+) -> AppResult<()> {
+    // Ensure the agent_config row exists
+    let existing = get_agent_config(db, agent_type).await?;
+    if existing.is_none() {
+        upsert_agent_config(db, agent_type, None, None).await?;
+    }
+
+    let now = now_rfc3339();
+    let result = sqlx::query(
+        "UPDATE agent_configs SET is_selectable = ?1, updated_at = ?2 WHERE agent_type = ?3",
+    )
+    .bind(is_selectable)
+    .bind(&now)
+    .bind(agent_type)
+    .execute(db)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound(format!(
+            "Agent config not found: {agent_type}"
+        )));
+    }
+
+    Ok(())
+}
+
+pub async fn list_selectable_agents(db: &SqlitePool) -> AppResult<Vec<SelectableAgent>> {
+    // Built-in selectable agents
+    let mut agents: Vec<SelectableAgent> = sqlx::query_as::<_, SelectableAgent>(
+        "SELECT agent_type, agent_type as name, 0 as is_custom FROM agent_configs WHERE is_selectable = 1",
+    )
+    .fetch_all(db)
+    .await?;
+
+    // Custom selectable agents
+    let custom_agents: Vec<SelectableAgent> = sqlx::query_as::<_, SelectableAgent>(
+        "SELECT agent_type, name, 1 as is_custom FROM custom_agents WHERE is_selectable = 1 AND is_enabled = 1",
+    )
+    .fetch_all(db)
+    .await?;
+
+    agents.extend(custom_agents);
+    Ok(agents)
 }

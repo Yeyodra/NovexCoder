@@ -26,3 +26,14 @@ pub fn get_prompt(agent_type: &str) -> Option<&'static str> {
         _ => None,
     }
 }
+
+/// Returns (system_prompt, optional_provider_id, optional_model_id) for a custom agent.
+/// Returns None if agent_type is not found in custom_agents table.
+pub async fn get_prompt_dynamic(
+    db: &sqlx::SqlitePool,
+    agent_type: &str,
+) -> crate::error::AppResult<Option<(String, Option<String>, Option<String>)>> {
+    let agent =
+        crate::services::custom_agent_service::get_custom_agent_by_type(db, agent_type).await?;
+    Ok(agent.map(|a| (a.system_prompt, a.provider_id, a.model_id)))
+}

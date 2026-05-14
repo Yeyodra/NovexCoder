@@ -1,4 +1,5 @@
 import { PermissionRequest, AGENT_LABELS } from '@/types';
+import { useCustomAgentStore } from '@/stores/useCustomAgentStore';
 import { Warning } from '@phosphor-icons/react';
 
 interface PermissionDialogProps {
@@ -10,7 +11,8 @@ interface PermissionDialogProps {
 export function PermissionDialog({ request, onAllow, onDeny }: PermissionDialogProps) {
   if (!request) return null;
 
-  const agentLabel = AGENT_LABELS[request.agentType] || request.agentType;
+  const { customAgents } = useCustomAgentStore();
+  const agentLabel = AGENT_LABELS[request.agentType] || customAgents.find(a => a.agentType === request.agentType)?.name || request.agentType;
 
   return (
     <div className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-sm flex items-center justify-center">

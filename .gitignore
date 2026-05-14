@@ -36,3 +36,6 @@ package-lock.json
 
 # AI memory files
 .memory
+
+# Sisyphus orchestration state
+.sisyphus

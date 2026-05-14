@@ -1,5 +1,6 @@
 pub mod agent_config;
 pub mod agent_run;
+pub mod custom_agent;
 pub mod message;
 pub mod project;
 pub mod provider;
@@ -9,6 +10,7 @@ pub mod drawing;
 pub mod tool_call;
 
 pub use agent_config::AgentConfig;
+pub use custom_agent::CustomAgent;
 pub use drawing::Drawing;
 pub use agent_run::AgentRun;
 pub use message::Message;

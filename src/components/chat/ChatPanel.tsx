@@ -136,7 +136,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ onChipClick }) => {
 
       <div
         className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none"
-        style={{ background: 'linear-gradient(to bottom, transparent, var(--bg))' }}
+        style={{ background: 'linear-gradient(to bottom, transparent, var(--surface))' }}
       />
     </div>
   );

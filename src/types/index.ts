@@ -63,7 +63,7 @@ export interface AgentRun {
   projectPath?: string | null;
 }
 
-export type AgentType =
+export type BuiltinAgentType =
   | 'orchestrator'
   | 'planner'
   | 'coder_fe'
@@ -76,9 +76,9 @@ export type AgentType =
   | 'researcher'
   | 'librarian';
 
-export const SELECTABLE_AGENTS: AgentType[] = ['orchestrator', 'planner'];
+export type AgentType = BuiltinAgentType | (string & {});
 
-export const AGENT_LABELS: Record<AgentType, string> = {
+export const AGENT_LABELS: Record<string, string> = {
   orchestrator: 'Orchestrator',
   planner: 'Planner',
   coder_fe: 'Coder FE',
@@ -97,8 +97,29 @@ export interface AgentConfig {
   agentType: AgentType;
   providerId: string | null;
   modelId: string | null;
+  isSelectable: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CustomAgent {
+  id: string;
+  agentType: string;
+  name: string;
+  description: string;
+  systemPrompt: string;
+  providerId: string | null;
+  modelId: string | null;
+  isSelectable: boolean;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SelectableAgent {
+  agentType: string;
+  name: string;
+  isCustom: boolean;
 }
 
 export interface ToolCall {

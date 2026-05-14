@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export type Theme = 'dark' | 'light';
-export type MainView = 'chat' | 'canvas';
+export type MainView = 'chat' | 'canvas' | 'settings';
 
 interface UIState {
   leftSidebarOpen: boolean;
@@ -10,8 +10,6 @@ interface UIState {
   rightSidebarOpen: boolean;
   toggleRightSidebar: () => void;
   setRightSidebarOpen: (open: boolean) => void;
-  settingsOpen: boolean;
-  setSettingsOpen: (open: boolean) => void;
   theme: Theme;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
@@ -36,8 +34,6 @@ export const useUIStore = create<UIState>((set) => ({
   rightSidebarOpen: true,
   toggleRightSidebar: () => set((s) => ({ rightSidebarOpen: !s.rightSidebarOpen })),
   setRightSidebarOpen: (open) => set({ rightSidebarOpen: open }),
-  settingsOpen: false,
-  setSettingsOpen: (open) => set({ settingsOpen: open }),
   theme: getStoredTheme(),
   setTheme: (theme) => {
     localStorage.setItem('enowx-theme', theme);

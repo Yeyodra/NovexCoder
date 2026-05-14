@@ -121,7 +121,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ onToggleLeftSidebar }) =
 
   return (
     <>
-    <header className="h-16 border-b border-[var(--border)] bg-[var(--surface)] flex items-center justify-between px-6 backdrop-blur-md sticky top-0 z-10">
+    <header className="h-16 border-b border-[var(--border)] bg-[var(--bg)] flex items-center justify-between px-6 backdrop-blur-md sticky top-0 z-10">
       <div className="flex items-center gap-3 min-w-0">
         {onToggleLeftSidebar && (
           <button

@@ -52,7 +52,14 @@ pub fn run() -> Result<(), AppError> {
             commands::agent::get_agent_config,
             commands::agent::upsert_agent_config,
             commands::agent::list_agent_configs,
-            commands::agent::agent_permission_response
+            commands::agent::agent_permission_response,
+            commands::agent::toggle_agent_selectable,
+            commands::agent::list_selectable_agents,
+            commands::custom_agent::create_custom_agent,
+            commands::custom_agent::list_custom_agents,
+            commands::custom_agent::update_custom_agent,
+            commands::custom_agent::delete_custom_agent,
+            commands::custom_agent::toggle_custom_agent_selectable
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

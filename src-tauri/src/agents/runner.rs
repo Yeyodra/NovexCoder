@@ -564,11 +564,32 @@ impl AgentRunner {
         ctx: &InternalRunContext<'_>,
         token_sink: &S,
     ) -> AppResult<String> {
-        let system_prompt = get_prompt(ctx.agent_type).ok_or_else(|| {
-            AppError::Validation(format!("Unknown agent type for prompt lookup: {}", ctx.agent_type))
-        })?;
+        // Resolve system prompt: built-in (static) or custom (from DB)
+        let (system_prompt_owned, custom_provider_id, custom_model_id) =
+            if let Some(builtin_prompt) = get_prompt(ctx.agent_type) {
+                (builtin_prompt.to_string(), None, None)
+            } else if ctx.agent_type.starts_with("custom_") {
+                use crate::agents::prompts::get_prompt_dynamic;
+                let (prompt, prov, model) = get_prompt_dynamic(&self.db, ctx.agent_type)
+                    .await?
+                    .ok_or_else(|| {
+                        AppError::Validation(format!("Custom agent not found: {}", ctx.agent_type))
+                    })?;
+                (prompt, prov, model)
+            } else {
+                return Err(AppError::Validation(format!(
+                    "Unknown agent type for prompt lookup: {}",
+                    ctx.agent_type
+                )));
+            };
 
-        let provider = provider_service::get_provider_for_chat(&self.db, ctx.provider_id).await?;
+        let system_prompt = &system_prompt_owned;
+
+        let provider = provider_service::get_provider_for_chat(
+            &self.db,
+            custom_provider_id.as_deref().or(ctx.provider_id),
+        )
+        .await?;
 
         // Pre-flight: check API key is configured (except for local providers like Ollama)
         if provider.provider_type != "ollama"
@@ -583,13 +604,39 @@ impl AgentRunner {
             )));
         }
 
-        let model = ctx.model_id.unwrap_or(&provider.model);
+        let model = custom_model_id
+            .as_deref()
+            .or(ctx.model_id)
+            .unwrap_or(&provider.model);
         let tool_executor = ToolExecutor::new(PathBuf::from(ctx.project_path));
 
         let system_content = if ctx.flux_enabled {
             format!("{}\n\n{}\n\n{}", system_prompt, LANGUAGE_GUARD, PREVIEW_GUIDE)
         } else {
             format!("{}\n\n{}", system_prompt, LANGUAGE_GUARD)
+        };
+
+        // Inject custom agents into orchestrator prompt
+        let system_content = if ctx.agent_type == "orchestrator" {
+            use crate::services::custom_agent_service;
+            let custom_agents = custom_agent_service::list_enabled_custom_agents(&self.db).await?;
+            if custom_agents.is_empty() {
+                system_content
+            } else {
+                let mut injection = String::from("\n\n## Additional Available Agents (Custom)\nYou can also delegate to these custom agents:\n");
+                for agent in &custom_agents {
+                    let desc = agent.description.replace('\n', " ").replace('\r', "");
+                    let desc = if desc.len() > 200 {
+                        &desc[..200]
+                    } else {
+                        &desc
+                    };
+                    injection.push_str(&format!("- {}: {}\n", agent.agent_type, desc));
+                }
+                format!("{}{}", system_content, injection)
+            }
+        } else {
+            system_content
         };
 
         // Load conversation history for context

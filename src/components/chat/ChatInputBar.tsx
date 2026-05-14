@@ -11,7 +11,7 @@ import {
 import { useChatStore } from '@/stores/useChatStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useAgentStore } from '@/stores/useAgentStore';
-import { ProviderModelConfig, SELECTABLE_AGENTS, AGENT_LABELS } from '@/types';
+import { ProviderModelConfig, SelectableAgent, AGENT_LABELS } from '@/types';
 import { cn } from '@/lib/utils';
 
 export interface ChatInputBarHandle {
@@ -34,6 +34,7 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
     useSettingsStore();
 
   const [value, setValue] = useState('');
+  const [selectableAgents, setSelectableAgents] = useState<SelectableAgent[]>([]);
   const [enabledModels, setEnabledModels] = useState<ProviderModelConfig[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -44,6 +45,30 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
       setTimeout(() => textareaRef.current?.focus(), 50);
     },
   }));
+
+  // Load selectable agents on mount and when window regains focus
+  useEffect(() => {
+    async function loadSelectableAgents() {
+      try {
+        const agents = await invoke<SelectableAgent[]>('list_selectable_agents');
+        setSelectableAgents(agents);
+      } catch (err) {
+        console.error('Failed to load selectable agents:', err);
+      }
+    }
+    loadSelectableAgents();
+
+    const handleFocus = () => loadSelectableAgents();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  // Fallback to orchestrator if selected agent is no longer in the list
+  useEffect(() => {
+    if (selectableAgents.length > 0 && !selectableAgents.some(a => a.agentType === selectedAgentType)) {
+      setSelectedAgentType('orchestrator');
+    }
+  }, [selectableAgents, selectedAgentType, setSelectedAgentType]);
 
   // Auto-select provider if only one enabled and none selected
   useEffect(() => {
@@ -166,11 +191,15 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
                 <SelectValue placeholder="Agent" />
               </SelectTrigger>
               <SelectContent side="top" align="start">
-                {SELECTABLE_AGENTS.map((agent) => (
-                  <SelectItem key={agent} value={agent}>
-                    {AGENT_LABELS[agent]}
-                  </SelectItem>
-                ))}
+                {selectableAgents.length === 0 ? (
+                  <SelectItem value="orchestrator">Orchestrator</SelectItem>
+                ) : (
+                  selectableAgents.map((agent) => (
+                    <SelectItem key={agent.agentType} value={agent.agentType}>
+                      {agent.isCustom ? agent.name : (AGENT_LABELS[agent.agentType] || agent.name)}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
 

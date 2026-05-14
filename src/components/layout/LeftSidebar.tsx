@@ -5,11 +5,11 @@ import { SidebarSimple, GearSix } from '@phosphor-icons/react';
 import { useUIStore } from '@/stores/useUIStore';
 
 export const LeftSidebar: React.FC = () => {
-  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
+  const setMainView = useUIStore((s) => s.setMainView);
   const toggleLeftSidebar = useUIStore((s) => s.toggleLeftSidebar);
 
   return (
-    <aside className="h-full bg-[var(--surface)] border-r border-[var(--border)] flex flex-col w-[var(--sidebar-width-left)]">
+    <aside className="h-full bg-[var(--bg)] border-r border-[var(--border)] flex flex-col w-[var(--sidebar-width-left)]">
       <div className="flex items-center gap-2 p-4 border-b border-[var(--border)]">
         <button
           onClick={toggleLeftSidebar}
@@ -35,7 +35,7 @@ export const LeftSidebar: React.FC = () => {
 
       <div className="p-3 border-t border-[var(--border)]">
         <button
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => setMainView('settings')}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-colors text-sm"
         >
           <GearSix size={16} />

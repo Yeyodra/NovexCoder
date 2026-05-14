@@ -14,7 +14,7 @@ import { useSessionStore } from '@/stores/useSessionStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useAgentStore } from '@/stores/useAgentStore';
-import { SettingsModal } from '@/components/settings/SettingsModal';
+import { SettingsPage } from '@/components/settings/SettingsModal';
 import { ExcalidrawCanvas } from '@/components/canvas/ExcalidrawCanvas';
 import { AgentConfig, AgentRunWithTools, AgentType, Message, PermissionRequest, Project, Provider, ProviderModelConfig, Session, ToolCall } from '@/types';
 import { cn } from '@/lib/utils';
@@ -565,48 +565,54 @@ export const AppShell: React.FC = () => {
   };
 
   return (
-    <div
-      className="bg-[var(--bg)] text-[var(--text)] h-screen w-screen overflow-hidden"
-      style={{
-        display: 'grid',
-        gridTemplateColumns: `${leftSidebarOpen ? 'var(--sidebar-width-left)' : '0px'} 1fr ${rightSidebarOpen ? 'var(--sidebar-width-right)' : '0px'}`,
-        gridTemplateRows: '1fr',
-        transition: 'grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}
-    >
-      <div className={cn(
-        'h-full overflow-hidden transition-opacity duration-200',
-        leftSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      )}>
-        <LeftSidebar />
-      </div>
+    <>
+      {mainView === 'settings' ? (
+        <div className="h-screen w-screen bg-[var(--bg)]">
+          <SettingsPage />
+        </div>
+      ) : (
+        <div
+          className="bg-[var(--bg)] text-[var(--text)] h-screen w-screen overflow-hidden"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `${leftSidebarOpen ? 'var(--sidebar-width-left)' : '0px'} 1fr ${rightSidebarOpen ? 'var(--sidebar-width-right)' : '0px'}`,
+            gridTemplateRows: '1fr',
+            transition: 'grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
+          <div className={cn(
+            'h-full overflow-hidden transition-opacity duration-200',
+            leftSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          )}>
+            <LeftSidebar />
+          </div>
 
-      <main className="flex flex-col overflow-hidden min-h-0">
-        <ChatHeader onToggleLeftSidebar={!leftSidebarOpen ? toggleLeftSidebar : undefined} />
-        {mainView === 'chat' ? (
-          <>
-            <ChatPanel onChipClick={(text) => chatInputRef.current?.prefill(text)} />
-            <ChatInputBar ref={chatInputRef} onSend={handleSend} onStop={handleStop} />
-          </>
-        ) : (
-          <ExcalidrawCanvas />
-        )}
-      </main>
+          <main className="flex flex-col overflow-hidden min-h-0 bg-[var(--surface)]">
+            <ChatHeader onToggleLeftSidebar={!leftSidebarOpen ? toggleLeftSidebar : undefined} />
+            {mainView === 'chat' ? (
+              <>
+                <ChatPanel onChipClick={(text) => chatInputRef.current?.prefill(text)} />
+                <ChatInputBar ref={chatInputRef} onSend={handleSend} onStop={handleStop} />
+              </>
+            ) : mainView === 'canvas' ? (
+              <ExcalidrawCanvas />
+            ) : null}
+          </main>
 
-      <div className={cn(
-        'h-full overflow-hidden transition-opacity duration-200',
-        rightSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      )}>
-        <RightSidebar />
-      </div>
+          <div className={cn(
+            'h-full overflow-hidden transition-opacity duration-200',
+            rightSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          )}>
+            <RightSidebar />
+          </div>
 
-      <SettingsModal />
-
-      <PermissionDialog
-        request={pendingPermission}
-        onAllow={handlePermissionAllow}
-        onDeny={handlePermissionDeny}
-      />
-    </div>
+          <PermissionDialog
+            request={pendingPermission}
+            onAllow={handlePermissionAllow}
+            onDeny={handlePermissionDeny}
+          />
+        </div>
+      )}
+    </>
   );
 };
