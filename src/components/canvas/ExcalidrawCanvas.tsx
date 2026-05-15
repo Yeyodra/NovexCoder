@@ -233,7 +233,12 @@ export const ExcalidrawCanvas: React.FC = () => {
               {providers.filter(p => p.isEnabled).length > 0 && (
                 <Select value={defaultProviderId ?? undefined} onValueChange={setDefaultProviderId} disabled={aiLoading}>
                   <SelectTrigger className="h-6 text-[10px] max-w-[100px]">
-                    <SelectValue placeholder="Provider" />
+                    <SelectValue placeholder="Provider">
+                      {(value) => {
+                        const prov = providers.find((p) => p.id === value);
+                        return prov?.name ?? value ?? 'Provider';
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent side="top" align="end">
                     {providers.filter(p => p.isEnabled).map((p) => (
