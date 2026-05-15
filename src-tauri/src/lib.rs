@@ -71,6 +71,7 @@ pub fn run() -> Result<(), AppError> {
             commands::session::reorder_sessions,
             commands::project::reorder_projects,
             commands::project::update_project_meta,
+            commands::terminal::open_terminal,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

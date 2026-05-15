@@ -6,3 +6,4 @@ pub mod project;
 pub mod provider;
 pub mod session;
 pub mod session_folder;
+pub mod terminal;
