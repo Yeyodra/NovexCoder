@@ -123,7 +123,9 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
     const ta = textareaRef.current;
     if (!ta) return;
     ta.style.height = '0px';
-    ta.style.height = `${Math.min(ta.scrollHeight, MAX_HEIGHT)}px`;
+    const capped = Math.min(ta.scrollHeight, MAX_HEIGHT);
+    ta.style.height = `${capped}px`;
+    ta.style.overflowY = ta.scrollHeight > MAX_HEIGHT ? 'auto' : 'hidden';
   }, []);
 
   useEffect(() => {
@@ -176,7 +178,7 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
               'custom-scrollbar',
               isGenerating && 'opacity-50 cursor-not-allowed'
             )}
-            style={{ minHeight: '44px', maxHeight: `${MAX_HEIGHT}px` }}
+            style={{ minHeight: '44px', maxHeight: `${MAX_HEIGHT}px`, overflowY: 'hidden' }}
           />
 
           {/* Footer toolbar — flex-shrink-0, stays at bottom */}
