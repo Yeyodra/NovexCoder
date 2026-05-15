@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { invoke, Channel } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { motion } from 'motion/react';
 import { LeftSidebar } from '@/components/layout/LeftSidebar';
 import { RightSidebar } from '@/components/layout/RightSidebar';
 import { ChatHeader } from '@/components/layout/ChatHeader';
@@ -16,8 +17,13 @@ import { useUIStore } from '@/stores/useUIStore';
 import { useAgentStore } from '@/stores/useAgentStore';
 import { SettingsPage } from '@/components/settings/SettingsModal';
 import { ExcalidrawCanvas } from '@/components/canvas/ExcalidrawCanvas';
+import { DrawerProvider, useDrawer } from '@/contexts/DrawerContext';
+import { useEdgeSwipe } from '@/hooks/useEdgeSwipe';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useDevice } from '@/lib/device';
+import { SessionSidebar } from '@/components/sidebar/SessionSidebar';
 import { AgentConfig, AgentRunWithTools, AgentType, Message, PermissionRequest, Project, Provider, ProviderModelConfig, Session, ToolCall } from '@/types';
-import { cn } from '@/lib/utils';
+
 
 export const AppShell: React.FC = () => {
   const { addMessage, appendStreamToken, setStreaming, clearStreaming, setMessages } = useChatStore();
@@ -46,6 +52,8 @@ export const AppShell: React.FC = () => {
     selectedAgentType,
     agentConfigs,
   } = useAgentStore();
+
+  useKeyboardShortcuts();
 
   const chatInputRef = React.useRef<ChatInputBarHandle>(null);
 
@@ -565,46 +573,115 @@ export const AppShell: React.FC = () => {
   };
 
   return (
+    <DrawerProvider>
+      <AppShellInner
+        mainView={mainView}
+        leftSidebarOpen={leftSidebarOpen}
+        toggleLeftSidebar={toggleLeftSidebar}
+        rightSidebarOpen={rightSidebarOpen}
+        chatInputRef={chatInputRef}
+        handleSend={handleSend}
+        handleStop={handleStop}
+        pendingPermission={pendingPermission}
+        handlePermissionAllow={handlePermissionAllow}
+        handlePermissionDeny={handlePermissionDeny}
+      />
+    </DrawerProvider>
+  );
+};
+
+/** Inner component that has access to DrawerContext */
+const AppShellInner: React.FC<{
+  mainView: string;
+  leftSidebarOpen: boolean;
+  toggleLeftSidebar: () => void;
+  rightSidebarOpen: boolean;
+  chatInputRef: React.RefObject<ChatInputBarHandle | null>;
+  handleSend: (content: string) => Promise<void>;
+  handleStop: () => Promise<void>;
+  pendingPermission: PermissionRequest | null;
+  handlePermissionAllow: () => void;
+  handlePermissionDeny: () => void;
+}> = ({
+  mainView,
+  leftSidebarOpen,
+  toggleLeftSidebar,
+  rightSidebarOpen,
+  chatInputRef,
+  handleSend,
+  handleStop,
+  pendingPermission,
+  handlePermissionAllow,
+  handlePermissionDeny,
+}) => {
+  const device = useDevice();
+  const drawer = useDrawer();
+
+  // Enable edge swipe on mobile
+  useEdgeSwipe({ enabled: device.isMobile });
+
+  return (
     <>
       {mainView === 'settings' ? (
-        <div className="h-screen w-screen bg-[var(--bg)]">
+        <div className="h-[100dvh] w-screen bg-background">
           <SettingsPage />
         </div>
       ) : (
-        <div
-          className="bg-[var(--bg)] text-[var(--text)] h-screen w-screen overflow-hidden"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `${leftSidebarOpen ? 'var(--sidebar-width-left)' : '0px'} 1fr ${rightSidebarOpen ? 'var(--sidebar-width-right)' : '0px'}`,
-            gridTemplateRows: '1fr',
-            transition: 'grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-        >
-          <div className={cn(
-            'h-full overflow-hidden transition-opacity duration-200',
-            leftSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          )}>
-            <LeftSidebar />
+        <div className="h-[100dvh] flex">
+          <div className="absolute inset-0 flex overflow-hidden" style={{ background: 'var(--sidebar)' }}>
+            {/* Left Sidebar — hidden on mobile (rendered in drawer instead) */}
+            {!device.isMobile && <LeftSidebar />}
+            {/* Center Column */}
+            <div className="relative flex flex-1 min-w-0 flex-col bg-background rounded-tl-xl rounded-bl-xl">
+              <ChatHeader onToggleLeftSidebar={device.isMobile ? drawer.toggleLeftDrawer : (!leftSidebarOpen ? toggleLeftSidebar : undefined)} />
+              <div className="flex flex-1 min-h-0">
+                {mainView === 'chat' ? (
+                  <div className="flex flex-1 flex-col min-h-0">
+                    <ChatPanel onChipClick={(text) => chatInputRef.current?.prefill(text)} />
+                    <ChatInputBar ref={chatInputRef} onSend={handleSend} onStop={handleStop} />
+                  </div>
+                ) : mainView === 'canvas' ? (
+                  <ExcalidrawCanvas />
+                ) : null}
+              </div>
+            </div>
+            {/* Right Sidebar — hidden on mobile (rendered in drawer instead) */}
+            {!device.isMobile && rightSidebarOpen && <RightSidebar />}
           </div>
 
-          <main className="flex flex-col overflow-hidden min-h-0 bg-[var(--surface)]">
-            <ChatHeader onToggleLeftSidebar={!leftSidebarOpen ? toggleLeftSidebar : undefined} />
-            {mainView === 'chat' ? (
-              <>
-                <ChatPanel onChipClick={(text) => chatInputRef.current?.prefill(text)} />
-                <ChatInputBar ref={chatInputRef} onSend={handleSend} onStop={handleStop} />
-              </>
-            ) : mainView === 'canvas' ? (
-              <ExcalidrawCanvas />
-            ) : null}
-          </main>
+          {/* Mobile Drawer Overlays */}
+          {device.isMobile && (
+            <>
+              {/* Backdrop */}
+              {(drawer.leftDrawerOpen || drawer.rightDrawerOpen) && (
+                <div
+                  className="fixed inset-0 z-40 bg-black/50"
+                  onClick={() => {
+                    drawer.closeLeftDrawer();
+                    drawer.closeRightDrawer();
+                  }}
+                />
+              )}
 
-          <div className={cn(
-            'h-full overflow-hidden transition-opacity duration-200',
-            rightSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          )}>
-            <RightSidebar />
-          </div>
+              {/* Left Drawer — Session Sidebar */}
+              <motion.div
+                className="fixed top-0 left-0 bottom-0 z-50 w-[280px] bg-sidebar border-r border-border"
+                style={{ x: drawer.leftDrawerX }}
+                initial={{ x: -280 }}
+              >
+                <SessionSidebar />
+              </motion.div>
+
+              {/* Right Drawer — Right Sidebar */}
+              <motion.div
+                className="fixed top-0 right-0 bottom-0 z-50 w-[320px] bg-sidebar border-l border-border"
+                style={{ x: drawer.rightDrawerX }}
+                initial={{ x: 320 }}
+              >
+                <RightSidebar />
+              </motion.div>
+            </>
+          )}
 
           <PermissionDialog
             request={pendingPermission}

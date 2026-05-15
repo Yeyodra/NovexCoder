@@ -263,7 +263,7 @@ export const ExcalidrawCanvas: React.FC = () => {
                 className={cn(
                   'flex items-center justify-center w-7 h-7 rounded-lg transition-all',
                   canSend
-                    ? 'bg-[var(--accent)] text-[var(--accent-fg)] hover:bg-[var(--accent-hover)] active:scale-95'
+                    ? 'bg-[var(--accent)] text-[var(--accent-fg)] hover:bg-[var(--accent-hover)] active:scale-[0.97]'
                     : 'bg-[var(--surface-3)] text-[var(--text-subtle)] cursor-not-allowed'
                 )}
                 title="Generate (Enter)"

@@ -9,4 +9,9 @@ pub struct Session {
     pub title: String,
     pub created_at: String,
     pub updated_at: String,
+    pub is_pinned: bool,
+    pub is_archived: bool,
+    pub folder_id: Option<String>,
+    pub parent_session_id: Option<String>,
+    pub sort_order: i64,
 }

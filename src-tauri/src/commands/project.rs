@@ -20,3 +20,21 @@ pub async fn list_projects(state: State<'_, AppState>) -> AppResult<Vec<Project>
 pub async fn delete_project(state: State<'_, AppState>, id: String) -> AppResult<()> {
     project_service::delete_project(state.pool(), &id).await
 }
+
+#[tauri::command]
+pub async fn reorder_projects(
+    state: State<'_, AppState>,
+    project_ids: Vec<String>,
+) -> AppResult<()> {
+    project_service::reorder_projects(state.pool(), project_ids).await
+}
+
+#[tauri::command]
+pub async fn update_project_meta(
+    state: State<'_, AppState>,
+    id: String,
+    icon: Option<String>,
+    color: Option<String>,
+) -> AppResult<()> {
+    project_service::update_project_meta(state.pool(), &id, icon.as_deref(), color.as_deref()).await
+}

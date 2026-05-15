@@ -9,4 +9,7 @@ pub struct Project {
     pub path: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    pub sort_order: i64,
+    pub icon: Option<String>,
+    pub color: Option<String>,
 }

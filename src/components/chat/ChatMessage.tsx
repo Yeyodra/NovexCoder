@@ -2,11 +2,11 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { Sparkle } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { Message } from '@/types';
-import { MarkdownCodeBlock } from './MarkdownCodeBlock';
+import { markdownComponents } from './markdownComponents';
 import { fixMarkdownTables } from '@/lib/utils';
+import { Icon } from '@/components/icon/Icon';
 import 'highlight.js/styles/github-dark.css';
 
 /**
@@ -37,11 +37,6 @@ const cleanContent = (raw: string): string => {
   return text.trim();
 };
 
-const markdownComponents = {
-  code: MarkdownCodeBlock as React.ComponentType<React.HTMLAttributes<HTMLElement>>,
-  pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-};
-
 interface ChatMessageProps {
   message: Message;
 }
@@ -55,37 +50,37 @@ export const ChatMessage = React.memo<ChatMessageProps>(({ message }) => {
       <div className="flex justify-end">
         <div
           className={cn(
-            'px-4 py-2.5 rounded-3xl rounded-br-lg text-[15px] leading-relaxed',
-            'bg-[var(--surface-2)] text-[var(--text)]',
-            'max-w-[75%]',
+            'rounded-3xl rounded-br-lg bg-card px-4 py-2.5',
+            'max-w-[85%]',
           )}
-          style={{ width: 'fit-content' }}
         >
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          <p className="text-sm text-foreground whitespace-pre-wrap">{message.content}</p>
         </div>
       </div>
     );
   }
 
-  /* ── Assistant message — flat, no boxes ──────────────────── */
+  /* ── Assistant message ────────────────────────────────────── */
   const content = cleanContent(message.content);
 
   return (
-    <div className="flex gap-3 w-full">
+    <div className="flex gap-3 items-start">
       {/* Avatar */}
-      <div className="w-7 h-7 rounded-full bg-[var(--accent)] flex items-center justify-center shrink-0 mt-0.5">
-        <Sparkle size={14} weight="fill" className="text-[var(--accent-fg)]" />
+      <div className="w-7 h-7 rounded-lg bg-card border border-border flex items-center justify-center flex-shrink-0">
+        <Icon name="sparkling" className="h-3.5 w-3.5 text-primary" />
       </div>
 
       {/* Content */}
-      <div className="min-w-0 flex-1 ai-prose ai-prose-readable pt-0.5">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeHighlight]}
-          components={markdownComponents}
-        >
-          {fixMarkdownTables(content)}
-        </ReactMarkdown>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm leading-relaxed">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeHighlight]}
+            components={markdownComponents}
+          >
+            {fixMarkdownTables(content)}
+          </ReactMarkdown>
+        </div>
       </div>
     </div>
   );

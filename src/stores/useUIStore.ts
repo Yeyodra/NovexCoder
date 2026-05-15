@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export type Theme = 'dark' | 'light';
 export type MainView = 'chat' | 'canvas' | 'settings';
+export type ContextPanelMode = 'diff' | 'file' | 'preview';
 
 interface UIState {
   leftSidebarOpen: boolean;
@@ -17,6 +18,13 @@ interface UIState {
   toggleFlux: () => void;
   mainView: MainView;
   setMainView: (view: MainView) => void;
+  isCommandPaletteOpen: boolean;
+  setCommandPaletteOpen: (open: boolean) => void;
+  toggleCommandPalette: () => void;
+  contextPanelOpen: boolean;
+  contextPanelMode: ContextPanelMode;
+  toggleContextPanel: () => void;
+  setContextPanelMode: (mode: ContextPanelMode) => void;
 }
 
 const getStoredTheme = (): Theme => {
@@ -48,4 +56,11 @@ export const useUIStore = create<UIState>((set) => ({
   toggleFlux: () => set((s) => ({ fluxEnabled: !s.fluxEnabled })),
   mainView: 'chat' as MainView,
   setMainView: (view) => set({ mainView: view }),
+  isCommandPaletteOpen: false,
+  setCommandPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),
+  toggleCommandPalette: () => set((s) => ({ isCommandPaletteOpen: !s.isCommandPaletteOpen })),
+  contextPanelOpen: false,
+  contextPanelMode: 'diff' as ContextPanelMode,
+  toggleContextPanel: () => set((s) => ({ contextPanelOpen: !s.contextPanelOpen })),
+  setContextPanelMode: (mode) => set({ contextPanelMode: mode }),
 }));

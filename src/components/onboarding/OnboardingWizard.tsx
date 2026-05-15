@@ -60,6 +60,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
       name: projectName.trim() || 'My Project',
       createdAt: now,
       updatedAt: now,
+      sortOrder: 0,
+      icon: null,
+      color: null,
     };
     addProject(project);
     setActiveProject(project.id);

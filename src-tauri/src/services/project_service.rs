@@ -23,6 +23,9 @@ pub async fn create_project(db: &SqlitePool, name: &str, path: Option<&str>) -> 
         path: path.map(std::string::ToString::to_string),
         created_at: now.clone(),
         updated_at: now,
+        sort_order: 0,
+        icon: None,
+        color: None,
     };
 
     sqlx::query(
@@ -41,7 +44,7 @@ pub async fn create_project(db: &SqlitePool, name: &str, path: Option<&str>) -> 
 
 pub async fn list_projects(db: &SqlitePool) -> AppResult<Vec<Project>> {
     let projects = sqlx::query_as::<_, Project>(
-        "SELECT id, name, path, created_at, updated_at FROM projects ORDER BY updated_at DESC",
+        "SELECT id, name, path, created_at, updated_at, sort_order, icon, color FROM projects ORDER BY updated_at DESC",
     )
     .fetch_all(db)
     .await?;
@@ -54,6 +57,41 @@ pub async fn delete_project(db: &SqlitePool, id: &str) -> AppResult<()> {
         .bind(id)
         .execute(db)
         .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound(format!("Project not found: {id}")));
+    }
+
+    Ok(())
+}
+
+pub async fn reorder_projects(db: &SqlitePool, project_ids: Vec<String>) -> AppResult<()> {
+    for (index, id) in project_ids.iter().enumerate() {
+        sqlx::query("UPDATE projects SET sort_order = ?1 WHERE id = ?2")
+            .bind(index as i64)
+            .bind(id)
+            .execute(db)
+            .await?;
+    }
+
+    Ok(())
+}
+
+pub async fn update_project_meta(
+    db: &SqlitePool,
+    id: &str,
+    icon: Option<&str>,
+    color: Option<&str>,
+) -> AppResult<()> {
+    let now = now_rfc3339();
+    let result =
+        sqlx::query("UPDATE projects SET icon = ?1, color = ?2, updated_at = ?3 WHERE id = ?4")
+            .bind(icon)
+            .bind(color)
+            .bind(&now)
+            .bind(id)
+            .execute(db)
+            .await?;
 
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound(format!("Project not found: {id}")));

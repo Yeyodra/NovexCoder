@@ -4,12 +4,29 @@ export interface Project {
   path?: string;
   createdAt: string;
   updatedAt: string;
+  sortOrder: number;
+  icon: string | null;
+  color: string | null;
 }
 
 export interface Session {
   id: string;
   projectId: string;
   title: string;
+  createdAt: string;
+  updatedAt: string;
+  isPinned: boolean;
+  isArchived: boolean;
+  folderId: string | null;
+  parentSessionId: string | null;
+  sortOrder: number;
+}
+
+export interface SessionFolder {
+  id: string;
+  projectId: string;
+  name: string;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }

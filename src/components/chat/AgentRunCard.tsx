@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -6,16 +6,11 @@ import { AgentRunWithTools, ToolCall, AGENT_LABELS } from '@/types';
 import { useCustomAgentStore } from '@/stores/useCustomAgentStore';
 import { ToolExecutionBlock } from './ToolExecutionBlock';
 import { ThinkingBlock } from './ThinkingBlock';
-import { MarkdownCodeBlock } from './MarkdownCodeBlock';
+import { markdownComponents } from './markdownComponents';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useAgentStore } from '@/stores/useAgentStore';
-import { Sparkle, CircleNotch, Copy, Check } from '@phosphor-icons/react';
+import { Icon } from '@/components/icon/Icon';
 import { fixMarkdownTables } from '@/lib/utils';
-
-const markdownComponents = {
-  code: MarkdownCodeBlock as React.ComponentType<React.HTMLAttributes<HTMLElement>>,
-  pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
-};
 
 interface AgentRunCardProps {
   run: AgentRunWithTools;
@@ -41,6 +36,8 @@ const formatDuration = (startedAt?: string, completedAt?: string): string | null
 };
 
 export function AgentRunCard({ run }: AgentRunCardProps) {
+  const [collapsed, setCollapsed] = useState(false);
+
   const normalizedBlocks = run.thinkingBlocks
     .map((b) => b.trim())
     .filter((b) => b.length > 0);
@@ -58,6 +55,7 @@ export function AgentRunCard({ run }: AgentRunCardProps) {
 
   const duration = formatDuration(run.startedAt, run.completedAt);
   const isRunning = run.status === 'running';
+  const isFailed = run.status === 'failed';
 
   const events = useMemo<TimelineEventItem[]>(() => {
     const list: TimelineEventItem[] = [];
@@ -111,45 +109,78 @@ export function AgentRunCard({ run }: AgentRunCardProps) {
     setTimeout(() => setCopied(false), 2000);
   }, [run.output, run.error]);
 
+  const agentLabel = AGENT_LABELS[run.agentType] || customAgents.find(a => a.agentType === run.agentType)?.name || run.agentType;
+
+  const toolEvents = events.filter((e) => e.kind !== 'result');
+  const resultEvents = events.filter((e) => e.kind === 'result');
+
   return (
-    <div className="flex gap-3 w-full">
-      {/* Avatar */}
-      <div className="w-7 h-7 rounded-full bg-[var(--accent)] flex items-center justify-center shrink-0 mt-0.5">
-        <Sparkle size={14} weight="fill" className="text-[var(--accent-fg)]" />
+    <div className="space-y-3">
+      {/* Agent card — collapsible, contains only tools + thinking */}
+      <div className="border rounded-xl bg-card/50 overflow-hidden">
+        {/* Header — click to collapse/expand */}
+        <button
+          onClick={() => setCollapsed((v) => !v)}
+          className="flex items-center gap-2 px-3 py-2 border-b border-border/50 w-full text-left hover:bg-muted/30 transition-colors"
+        >
+          {/* Status indicator */}
+          {isRunning ? (
+            <Icon name="loader-4" className="w-3.5 h-3.5 text-primary animate-spin" />
+          ) : isFailed ? (
+            <Icon name="close" className="w-3.5 h-3.5 text-destructive" />
+          ) : (
+            <Icon name="check" className="w-3.5 h-3.5 text-chart-2" />
+          )}
+
+          {/* Agent type badge */}
+          <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+            {agentLabel}
+          </span>
+
+          {/* Model + duration on the right */}
+          <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+            {modelName && <span>{modelName}</span>}
+            {duration && (
+              <>
+                <span className="text-border">·</span>
+                <span>{duration}</span>
+              </>
+            )}
+          </div>
+
+          {/* Chevron */}
+          <Icon
+            name={collapsed ? 'arrow-right-s' : 'arrow-down-s'}
+            className="w-3.5 h-3.5 text-muted-foreground"
+          />
+        </button>
+
+        {/* Collapsible body — only tool calls and thinking blocks */}
+        {!collapsed && toolEvents.length > 0 && (
+          <div className="px-3 py-2 space-y-2">
+            {toolEvents.map((event) => {
+              if (event.kind === 'thinking') {
+                return <ThinkingBlock key={event.key} content={event.content} defaultCollapsed={true} />;
+              }
+
+              if (event.kind === 'tool_execution') {
+                return <ToolExecutionBlock key={event.key} tool={event.tool} defaultExpanded={false} />;
+              }
+
+              // tool_failed
+              return <ToolExecutionBlock key={event.key} tool={event.tool} defaultExpanded={true} />;
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Content */}
-      <div className="min-w-0 flex-1 space-y-3 pt-0.5">
-        {/* Agent type + status */}
-        <div className="flex items-center gap-1.5 text-[12px] text-[var(--text-muted)]">
-          <span className="font-medium">{AGENT_LABELS[run.agentType] || customAgents.find(a => a.agentType === run.agentType)?.name || run.agentType}</span>
-          {isRunning && (
-            <>
-              <span className="text-[var(--text-subtle)]">·</span>
-              <CircleNotch size={11} weight="bold" className="text-[var(--accent)] animate-spin" />
-            </>
-          )}
-        </div>
-
-        {/* Events */}
-        <div className="space-y-2">
-          {events.map((event) => {
-            if (event.kind === 'thinking') {
-              return <ThinkingBlock key={event.key} content={event.content} defaultCollapsed={true} />;
-            }
-
-            if (event.kind === 'tool_execution') {
-              return <ToolExecutionBlock key={event.key} tool={event.tool} defaultExpanded={false} />;
-            }
-
-            if (event.kind === 'tool_failed') {
-              return <ToolExecutionBlock key={event.key} tool={event.tool} defaultExpanded={true} />;
-            }
-
-            // result (or live streaming)
+      {/* Output text — OUTSIDE the card, flows as regular content */}
+      {resultEvents.length > 0 && (
+        <div className="space-y-3">
+          {resultEvents.map((event) => {
             const isLiveStreaming = isRunning && event.key.endsWith('-streaming');
             return (
-              <div key={event.key} className="ai-prose ai-prose-readable text-[var(--text)]">
+              <div key={event.key} className="text-sm leading-relaxed text-foreground">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}
@@ -158,41 +189,31 @@ export function AgentRunCard({ run }: AgentRunCardProps) {
                   {fixMarkdownTables(event.content)}
                 </ReactMarkdown>
                 {isLiveStreaming && (
-                  <span className="inline-block w-0.5 h-4 bg-[var(--accent)] ml-0.5 align-middle animate-pulse rounded-full" />
+                  <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 align-middle animate-pulse rounded-full" />
                 )}
               </div>
             );
           })}
+
+          {/* Copy button — below output text */}
+          {!isRunning && (run.output || run.error) && (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => void handleCopy()}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+                title="Copy response"
+              >
+                {copied ? (
+                  <Icon name="check" className="w-3 h-3 text-chart-2" />
+                ) : (
+                  <Icon name="clipboard" className="w-3 h-3" />
+                )}
+                <span>{copied ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+          )}
         </div>
-
-        {/* Bottom bar: copy + model + duration — only after generation is done */}
-        {!isRunning && (run.output || run.error) && (
-          <div className="flex items-center gap-3 pt-1 text-[11px] text-[var(--text-subtle)]">
-            <button
-              onClick={() => void handleCopy()}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-[var(--surface-2)] hover:text-[var(--text-muted)] transition-colors"
-              title="Copy response"
-            >
-              {copied ? <Check size={12} weight="bold" className="text-[var(--accent)]" /> : <Copy size={12} />}
-              <span>{copied ? 'Copied' : 'Copy'}</span>
-            </button>
-
-            {modelName && (
-              <>
-                <span>·</span>
-                <span>{modelName}</span>
-              </>
-            )}
-
-            {duration && (
-              <>
-                <span>·</span>
-                <span>{duration}</span>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

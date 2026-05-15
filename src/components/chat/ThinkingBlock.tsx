@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Brain, CaretDown, CaretRight } from '@phosphor-icons/react';
+import { Icon } from '@/components/icon/Icon';
 
 interface ThinkingBlockProps {
   content: string;
@@ -15,18 +15,21 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   return (
-    <div>
+    <div className="border-l-2 border-border pl-3 py-1 my-1">
       <button
         onClick={() => setCollapsed((v) => !v)}
-        className="flex items-center gap-1.5 text-[12px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors py-1"
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-0.5"
       >
-        {collapsed ? <CaretRight size={10} weight="bold" /> : <CaretDown size={10} weight="bold" />}
-        <Brain size={12} weight="duotone" />
+        <Icon
+          name={collapsed ? 'arrow-right-s' : 'arrow-down-s'}
+          className="w-3 h-3 shrink-0"
+        />
+        <Icon name="brain" className="w-3.5 h-3.5" />
         <span className="font-medium">{title}</span>
       </button>
 
       {!collapsed && (
-        <div className="ml-5 pl-3 border-l-2 border-[var(--border)] text-[12px] leading-relaxed text-[var(--text-muted)] whitespace-pre-wrap mt-1 mb-1">
+        <div className="mt-1.5 text-sm italic text-muted-foreground whitespace-pre-wrap leading-relaxed">
           {content}
         </div>
       )}
