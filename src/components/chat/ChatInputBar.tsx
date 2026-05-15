@@ -151,8 +151,8 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
 
   return (
     <div className="mx-4 mb-4">
-      <div className="max-w-3xl mx-auto w-full flex flex-col gap-2">
-        {/* Card container with focus glow — textarea only */}
+      <div className="max-w-3xl mx-auto w-full">
+        {/* Single card container — textarea + footer toolbar */}
         <div
           className={cn(
             'relative flex flex-col rounded-2xl border border-border bg-card shadow-sm',
@@ -160,6 +160,7 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
             'focus-within:shadow-md focus-within:border-primary/30'
           )}
         >
+          {/* Textarea — grows upward, takes available space */}
           <textarea
             ref={textareaRef}
             data-chat-input="true"
@@ -175,102 +176,98 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
               'custom-scrollbar',
               isGenerating && 'opacity-50 cursor-not-allowed'
             )}
-            style={{ minHeight: '24px', maxHeight: `${MAX_HEIGHT}px` }}
+            style={{ minHeight: '44px', maxHeight: `${MAX_HEIGHT}px` }}
           />
-        </div>
 
-        {/* Toolbar — outside card */}
-        <div className="flex items-center justify-end gap-2 px-1">
-          {/* Agent selector */}
-          <Select
-            value={selectedAgentType}
-            onValueChange={(val: string) => setSelectedAgentType(val as typeof selectedAgentType)}
-            disabled={isGenerating}
-          >
-            <SelectTrigger className="h-7 text-[11px] max-w-[120px]">
-              <SelectValue placeholder="Agent" />
-            </SelectTrigger>
-            <SelectContent side="top" align="end" sideOffset={4}>
-              {selectableAgents.length === 0 ? (
-                <SelectItem value="orchestrator">Orchestrator</SelectItem>
-              ) : (
-                selectableAgents.map((agent) => (
-                  <SelectItem key={agent.agentType} value={agent.agentType}>
-                    {agent.isCustom ? agent.name : (AGENT_LABELS[agent.agentType] || agent.name)}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-
-          {/* Provider selector */}
-          {providers.filter((p) => p.isEnabled).length > 0 && (
-            <Select value={defaultProviderId ?? undefined} onValueChange={setDefaultProviderId} disabled={isGenerating}>
+          {/* Footer toolbar — flex-shrink-0, stays at bottom */}
+          <div className="flex items-center justify-end gap-2 px-3 py-2 flex-shrink-0">
+            {/* Agent selector */}
+            <Select
+              value={selectedAgentType}
+              onValueChange={(val: string) => setSelectedAgentType(val as typeof selectedAgentType)}
+              disabled={isGenerating}
+            >
               <SelectTrigger className="h-7 text-[11px] max-w-[120px]">
-                <SelectValue placeholder="Provider">
-                  {(value) => {
-                    const prov = providers.find((p) => p.id === value);
-                    return prov?.name ?? value ?? 'Provider';
-                  }}
-                </SelectValue>
+                <SelectValue placeholder="Agent" />
               </SelectTrigger>
-              <SelectContent side="top" align="end">
-                {providers.filter((p) => p.isEnabled).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
+              <SelectContent side="top" align="end" sideOffset={4}>
+                {selectableAgents.length === 0 ? (
+                  <SelectItem value="orchestrator">Orchestrator</SelectItem>
+                ) : (
+                  selectableAgents.map((agent) => (
+                    <SelectItem key={agent.agentType} value={agent.agentType}>
+                      {agent.isCustom ? agent.name : (AGENT_LABELS[agent.agentType] || agent.name)}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
-          )}
 
-          {/* Model selector */}
-          {enabledModels.length > 0 && (
-            <Select value={selectedModelId ?? undefined} onValueChange={setSelectedModelId} disabled={isGenerating}>
-              <SelectTrigger className="h-7 text-[11px] max-w-[160px]">
-                <SelectValue placeholder="Model" />
-              </SelectTrigger>
-              <SelectContent side="top" align="end">
-                {enabledModels.map((m) => (
-                  <SelectItem key={m.modelId} value={m.modelId}>{m.modelId}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+            {/* Provider selector */}
+            {providers.filter((p) => p.isEnabled).length > 0 && (
+              <Select value={defaultProviderId ?? undefined} onValueChange={setDefaultProviderId} disabled={isGenerating}>
+                <SelectTrigger className="h-7 text-[11px] max-w-[120px]">
+                  <SelectValue placeholder="Provider">
+                    {(value) => {
+                      const prov = providers.find((p) => p.id === value);
+                      return prov?.name ?? value ?? 'Provider';
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent side="top" align="end">
+                  {providers.filter((p) => p.isEnabled).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
-          {/* Stop / Send button */}
-          {isGenerating ? (
-            <button
-              type="button"
-              onClick={onStop}
-              className={cn(
-                'flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium',
-                'bg-destructive text-destructive-foreground',
-                'hover:bg-destructive/90 active:scale-[0.97] transition-all'
-              )}
-              title="Stop generating"
-            >
-              <Icon name="stop-circle" className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!canSend}
-              className={cn(
-                'flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium transition-all',
-                canSend
-                  ? 'bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.97]'
-                  : 'bg-muted text-muted-foreground opacity-50 cursor-not-allowed'
-              )}
-              title="Send (Enter)"
-            >
-              <Icon name="arrow-up" className="w-4 h-4" />
-            </button>
-          )}
+            {/* Model selector */}
+            {enabledModels.length > 0 && (
+              <Select value={selectedModelId ?? undefined} onValueChange={setSelectedModelId} disabled={isGenerating}>
+                <SelectTrigger className="h-7 text-[11px] max-w-[160px]">
+                  <SelectValue placeholder="Model" />
+                </SelectTrigger>
+                <SelectContent side="top" align="end">
+                  {enabledModels.map((m) => (
+                    <SelectItem key={m.modelId} value={m.modelId}>{m.modelId}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Stop / Send button */}
+            {isGenerating ? (
+              <button
+                type="button"
+                onClick={onStop}
+                className={cn(
+                  'flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium',
+                  'bg-destructive text-destructive-foreground',
+                  'hover:bg-destructive/90 active:scale-[0.97] transition-all'
+                )}
+                title="Stop generating"
+              >
+                <Icon name="stop-circle" className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={!canSend}
+                className={cn(
+                  'flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium transition-all',
+                  canSend
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.97]'
+                    : 'bg-muted text-muted-foreground opacity-50 cursor-not-allowed'
+                )}
+                title="Send (Enter)"
+              >
+                <Icon name="arrow-up" className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
-
-        <p className="text-center text-[10px] text-muted-foreground">
-          Enter to send · Shift+Enter for newline
-        </p>
       </div>
     </div>
   );
