@@ -1,47 +1,160 @@
 import React from 'react';
-import { ProjectSwitcher } from '@/components/sidebar/ProjectSwitcher';
-import { SessionList } from '@/components/sidebar/SessionList';
-import { SidebarSimple, GearSix } from '@phosphor-icons/react';
+import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/useUIStore';
+import { SessionSidebar } from '@/components/sidebar/SessionSidebar';
 
-export const LeftSidebar: React.FC = () => {
-  const setMainView = useUIStore((s) => s.setMainView);
-  const toggleLeftSidebar = useUIStore((s) => s.toggleLeftSidebar);
+const SIDEBAR_DEFAULT_WIDTH = 280;
+const SIDEBAR_MIN_WIDTH = 280;
+const SIDEBAR_MAX_WIDTH = 500;
+
+export function LeftSidebar() {
+  const isOpen = useUIStore((s) => s.leftSidebarOpen);
+
+  const [width, setWidth] = React.useState(SIDEBAR_DEFAULT_WIDTH);
+  const [isResizing, setIsResizing] = React.useState(false);
+  const [isMobile, setIsMobile] = React.useState(
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+
+  const sidebarRef = React.useRef<HTMLElement | null>(null);
+  const startXRef = React.useRef(0);
+  const startWidthRef = React.useRef(width);
+  const resizingWidthRef = React.useRef<number | null>(null);
+  const activePointerIdRef = React.useRef<number | null>(null);
+
+  // Track mobile breakpoint
+  React.useEffect(() => {
+    const mql = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    setIsMobile(mql.matches);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  // Cancel resize if mobile
+  React.useEffect(() => {
+    if (isMobile && isResizing) {
+      setIsResizing(false);
+    }
+  }, [isMobile, isResizing]);
+
+  // Cleanup refs on resize end
+  React.useEffect(() => {
+    if (!isResizing) {
+      resizingWidthRef.current = null;
+      activePointerIdRef.current = null;
+    }
+  }, [isResizing]);
+
+  const clamp = React.useCallback((value: number) => {
+    return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, value));
+  }, []);
+
+  const applyLiveWidth = React.useCallback((nextWidth: number) => {
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+    sidebar.style.setProperty('--oc-left-sidebar-width', `${nextWidth}px`);
+  }, []);
+
+  if (isMobile) {
+    return null;
+  }
+
+  const appliedWidth = isOpen ? clamp(width) : 0;
+
+  const handlePointerDown = (event: React.PointerEvent) => {
+    if (!isOpen) return;
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // ignore
+    }
+
+    activePointerIdRef.current = event.pointerId;
+    setIsResizing(true);
+    startXRef.current = event.clientX;
+    startWidthRef.current = appliedWidth;
+    resizingWidthRef.current = appliedWidth;
+    applyLiveWidth(appliedWidth);
+    event.preventDefault();
+  };
+
+  const handlePointerMove = (event: React.PointerEvent) => {
+    if (!isResizing || activePointerIdRef.current !== event.pointerId) return;
+
+    const delta = event.clientX - startXRef.current;
+    const nextWidth = clamp(startWidthRef.current + delta);
+    if (resizingWidthRef.current === nextWidth) return;
+
+    resizingWidthRef.current = nextWidth;
+    applyLiveWidth(nextWidth);
+  };
+
+  const handlePointerEnd = (event: React.PointerEvent) => {
+    if (activePointerIdRef.current !== event.pointerId) return;
+
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // ignore
+    }
+
+    const finalWidth = clamp(resizingWidthRef.current ?? appliedWidth);
+    activePointerIdRef.current = null;
+    resizingWidthRef.current = null;
+    setIsResizing(false);
+    setWidth(finalWidth);
+  };
 
   return (
-    <aside className="h-full bg-[var(--bg)] border-r border-[var(--border)] flex flex-col w-[var(--sidebar-width-left)]">
-      <div className="flex items-center gap-2 p-4 border-b border-[var(--border)]">
-        <button
-          onClick={toggleLeftSidebar}
-          className="w-7 h-7 rounded-lg bg-[var(--surface-3)] border border-[var(--border)] flex items-center justify-center hover:bg-[var(--surface-2)] transition-colors"
-          title="Toggle sidebar"
-        >
-          <SidebarSimple size={15} weight="fill" className="text-[var(--text)]" />
-        </button>
-        <span className="font-bold text-sm tracking-tight text-[var(--text)]">enowX Coder</span>
-      </div>
+    <aside
+      ref={sidebarRef}
+      className={cn(
+        'relative flex h-full overflow-hidden',
+        isResizing ? 'transition-none' : 'transition-[width] duration-300 ease-in-out',
+        !isOpen && 'border-r-0'
+      )}
+      style={{
+        width: 'var(--oc-left-sidebar-width)',
+        minWidth: 'var(--oc-left-sidebar-width)',
+        maxWidth: 'var(--oc-left-sidebar-width)',
+        ['--oc-left-sidebar-width' as string]: `${isResizing ? (resizingWidthRef.current ?? appliedWidth) : appliedWidth}px`,
+        overflowX: 'clip',
+      }}
+      aria-hidden={!isOpen || appliedWidth === 0}
+    >
+      {/* Resize handle */}
+      {isOpen && (
+        <div
+          className={cn(
+            'absolute right-0 top-0 z-20 h-full w-[3px] cursor-col-resize hover:bg-border/80 transition-colors',
+            isResizing && 'bg-border'
+          )}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+        />
+      )}
 
-      <div className="px-3 pt-3 pb-2">
-        <ProjectSwitcher />
-      </div>
-
-      <div className="px-4 pt-2 pb-1 text-[11px] uppercase tracking-widest font-semibold text-[var(--text-subtle)] select-none">
-        History
-      </div>
-
-      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-        <SessionList />
-      </div>
-
-      <div className="p-3 border-t border-[var(--border)]">
-        <button
-          onClick={() => setMainView('settings')}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-colors text-sm"
-        >
-          <GearSix size={16} />
-          <span>Settings</span>
-        </button>
+      {/* Sidebar content */}
+      <div
+        className={cn(
+          'relative z-10 flex h-full flex-col overflow-hidden',
+          isResizing && 'pointer-events-none',
+          !isOpen && 'pointer-events-none select-none opacity-0'
+        )}
+        style={{ width: 'var(--oc-left-sidebar-width)', overflowX: 'hidden' }}
+        aria-hidden={!isOpen}
+      >
+        <div className="flex-1 overflow-y-auto">
+          <SessionSidebar />
+        </div>
       </div>
     </aside>
   );
-};
+}

@@ -6,6 +6,7 @@ pub mod project;
 pub mod provider;
 pub mod provider_model;
 pub mod session;
+pub mod session_folder;
 pub mod drawing;
 pub mod tool_call;
 
@@ -18,6 +19,7 @@ pub use project::Project;
 pub use provider::{fixed_base_url, Provider};
 pub use provider_model::ProviderModelConfig;
 pub use session::Session;
+pub use session_folder::SessionFolder;
 pub use tool_call::ToolCall;
 
 
@@ -28,12 +30,14 @@ mod tests {
     #[test]
     fn test_project_serialization() {
         let p = Project {
-            id: 1,
+            id: "test-id".to_string(),
             name: "test-project".to_string(),
-            path: "/home/test/project".to_string(),
-            session_count: 0,
-            last_opened_at: "2025-01-01T00:00:00Z".to_string(),
+            path: Some("/home/test/project".to_string()),
             created_at: "2025-01-01T00:00:00Z".to_string(),
+            updated_at: "2025-01-01T00:00:00Z".to_string(),
+            sort_order: 0,
+            icon: None,
+            color: None,
         };
         let json = serde_json::to_string(&p).unwrap();
         assert!(json.contains("test-project"));

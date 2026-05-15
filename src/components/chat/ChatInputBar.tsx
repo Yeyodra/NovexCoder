@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Paperclip, ArrowUp, Stop } from '@phosphor-icons/react';
 import {
   Select,
   SelectContent,
@@ -8,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Icon } from '@/components/icon/Icon';
 import { useChatStore } from '@/stores/useChatStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useAgentStore } from '@/stores/useAgentStore';
@@ -41,7 +41,6 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
   React.useImperativeHandle(ref, () => ({
     prefill: (text: string) => {
       setValue(text);
-      // Focus the textarea after prefill
       setTimeout(() => textareaRef.current?.focus(), 50);
     },
   }));
@@ -96,7 +95,6 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
             setSelectedModelId(enabled[0]?.modelId ?? null);
           }
         } else {
-          // No models explicitly enabled — fetch all available models as fallback
           invoke<string[]>('list_models', { providerId: defaultProviderId })
             .then((allModels) => {
               const asFake = allModels.map((id) => ({ modelId: id, enabled: true, providerId: defaultProviderId!, id: id, maxTokens: 4096, temperature: 0.7, createdAt: '', updatedAt: '' }));
@@ -106,7 +104,6 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
               }
             })
             .catch(() => {
-              // Last resort: use provider's default model
               const prov = providers.find(p => p.id === defaultProviderId);
               if (prov?.model) {
                 setEnabledModels([{ modelId: prov.model, enabled: true, providerId: prov.id, id: prov.model, maxTokens: 4096, temperature: 0.7, createdAt: '', updatedAt: '' }]);
@@ -126,7 +123,9 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
     const ta = textareaRef.current;
     if (!ta) return;
     ta.style.height = '0px';
-    ta.style.height = `${Math.min(ta.scrollHeight, MAX_HEIGHT)}px`;
+    const capped = Math.min(ta.scrollHeight, MAX_HEIGHT);
+    ta.style.height = `${capped}px`;
+    ta.style.overflowY = ta.scrollHeight > MAX_HEIGHT ? 'auto' : 'hidden';
   }, []);
 
   useEffect(() => {
@@ -153,134 +152,129 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
   const canSend = value.trim().length > 0 && !isGenerating;
 
   return (
-    <div className="px-4 pb-4 pt-2">
+    <div className="mx-4 mb-4">
       <div className="max-w-3xl mx-auto w-full">
-      <div
-        className={cn(
-          'relative flex flex-col rounded-2xl border transition-all duration-200',
-          'bg-[var(--surface-2)] border-[var(--border)]',
-          'focus-within:border-[var(--focus-border)] focus-within:shadow-[0_0_0_3px_var(--focus-glow),0_0_20px_var(--focus-glow)]'
-        )}
-      >
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={isGenerating}
-          placeholder="How can I help you today?"
-          rows={1}
+        {/* Single card container — textarea + footer toolbar */}
+        <div
           className={cn(
-            'w-full resize-none bg-transparent px-4 pt-3 pb-2',
-            'text-sm leading-relaxed text-[var(--text)]',
-            'placeholder:text-[var(--text-subtle)]',
-            'custom-scrollbar',
-            isGenerating && 'opacity-50 cursor-not-allowed'
+            'relative flex flex-col rounded-2xl border border-border bg-card shadow-sm',
+            'transition-shadow duration-200',
+            'focus-within:shadow-md focus-within:border-primary/30'
           )}
-          style={{ minHeight: '24px', maxHeight: `${MAX_HEIGHT}px`, outline: 'none' }}
-        />
+        >
+          {/* Textarea — grows upward, takes available space */}
+          <textarea
+            ref={textareaRef}
+            data-chat-input="true"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isGenerating}
+            placeholder="How can I help you today?"
+            rows={1}
+            className={cn(
+              'w-full resize-none bg-transparent border-none outline-none',
+              'px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground',
+              'custom-scrollbar',
+              isGenerating && 'opacity-50 cursor-not-allowed'
+            )}
+            style={{ minHeight: '44px', maxHeight: `${MAX_HEIGHT}px`, overflowY: 'hidden' }}
+          />
 
-        <div className="flex items-center justify-between px-3 pb-3 pt-1 gap-2">
-          <div className="flex items-center gap-2">
-            <Select
-              value={selectedAgentType}
-              onValueChange={(val: any) => setSelectedAgentType(val)}
-              disabled={isGenerating}
-            >
-              <SelectTrigger className="h-7 text-[11px] max-w-[120px] bg-[var(--surface-3)] border-[var(--border)]">
-                <SelectValue placeholder="Agent" />
-              </SelectTrigger>
-              <SelectContent side="top" align="start">
-                {selectableAgents.length === 0 ? (
-                  <SelectItem value="orchestrator">Orchestrator</SelectItem>
-                ) : (
-                  selectableAgents.map((agent) => (
-                    <SelectItem key={agent.agentType} value={agent.agentType}>
-                      {agent.isCustom ? agent.name : (AGENT_LABELS[agent.agentType] || agent.name)}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+          {/* Footer toolbar — flex-shrink-0, stays at bottom */}
+          <div className="flex items-center justify-between px-3 py-2 flex-shrink-0 bg-card">
+            {/* Left: Agent selector */}
+            <div className="flex items-center">
+              <Select
+                value={selectedAgentType}
+                onValueChange={(val: string) => setSelectedAgentType(val as typeof selectedAgentType)}
+                disabled={isGenerating}
+              >
+                <SelectTrigger className="h-7 text-[11px] max-w-[120px] bg-card border border-border rounded-lg">
+                  <SelectValue placeholder="Agent" />
+                </SelectTrigger>
+                <SelectContent side="top" align="start" sideOffset={4}>
+                  {selectableAgents.length === 0 ? (
+                    <SelectItem value="orchestrator">Orchestrator</SelectItem>
+                  ) : (
+                    selectableAgents.map((agent) => (
+                      <SelectItem key={agent.agentType} value={agent.agentType}>
+                        {agent.isCustom ? agent.name : (AGENT_LABELS[agent.agentType] || agent.name)}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <button
-              type="button"
-              disabled={isGenerating}
-              className={cn(
-                'flex items-center justify-center w-8 h-8 rounded-lg transition-colors',
-                'text-[var(--text-subtle)] hover:text-[var(--text-muted)] hover:bg-[var(--hover-bg)]',
-                'disabled:opacity-30 disabled:cursor-not-allowed'
+            {/* Right: Provider + Model + Send */}
+            <div className="flex items-center gap-2">
+              {/* Provider selector */}
+              {providers.filter((p) => p.isEnabled).length > 0 && (
+                <Select value={defaultProviderId ?? undefined} onValueChange={setDefaultProviderId} disabled={isGenerating}>
+                  <SelectTrigger className="h-7 text-[11px] max-w-[120px] bg-card border border-border rounded-lg">
+                    <SelectValue placeholder="Provider">
+                      {(value) => {
+                        const prov = providers.find((p) => p.id === value);
+                        return prov?.name ?? value ?? 'Provider';
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent side="top" align="end">
+                    {providers.filter((p) => p.isEnabled).map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
-              title="Attach file"
-            >
-              <Paperclip size={16} />
-            </button>
-          </div>
 
-          <div className="flex items-center gap-2">
-            {/* Provider selector */}
-            {providers.filter((p) => p.isEnabled).length > 0 && (
-              <Select value={defaultProviderId ?? undefined} onValueChange={setDefaultProviderId} disabled={isGenerating}>
-                <SelectTrigger className="h-7 text-[11px] max-w-[120px]">
-                  <SelectValue placeholder="Provider" />
-                </SelectTrigger>
-                <SelectContent side="top" align="end">
-                  {providers.filter((p) => p.isEnabled).map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+              {/* Model selector */}
+              {enabledModels.length > 0 && (
+                <Select value={selectedModelId ?? undefined} onValueChange={setSelectedModelId} disabled={isGenerating}>
+                  <SelectTrigger className="h-7 text-[11px] max-w-[160px] bg-card border border-border rounded-lg">
+                    <SelectValue placeholder="Model" />
+                  </SelectTrigger>
+                  <SelectContent side="top" align="end">
+                    {enabledModels.map((m) => (
+                      <SelectItem key={m.modelId} value={m.modelId}>{m.modelId}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
-            {/* Model selector */}
-            {enabledModels.length > 0 && (
-              <Select value={selectedModelId ?? undefined} onValueChange={setSelectedModelId} disabled={isGenerating}>
-                <SelectTrigger className="h-7 text-[11px] max-w-[160px]">
-                  <SelectValue placeholder="Model" />
-                </SelectTrigger>
-                <SelectContent side="top" align="end">
-                  {enabledModels.map((m) => (
-                    <SelectItem key={m.modelId} value={m.modelId}>{m.modelId}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {isGenerating ? (
-              <button
-                type="button"
-                onClick={onStop}
-                className={cn(
-                  'flex items-center justify-center w-8 h-8 rounded-lg transition-all',
-                  'bg-[var(--accent)] text-[var(--accent-fg)] hover:bg-[var(--accent-hover)] active:scale-95',
-                )}
-                title="Stop generating"
-              >
-                <Stop size={16} weight="fill" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={!canSend}
-                className={cn(
-                  'flex items-center justify-center w-8 h-8 rounded-lg transition-all',
-                  canSend
-                    ? 'bg-[var(--accent)] text-[var(--accent-fg)] hover:bg-[var(--accent-hover)] active:scale-95'
-                    : 'bg-[var(--surface-3)] text-[var(--text-subtle)] cursor-not-allowed'
-                )}
-                title="Send (Enter)"
-              >
-                <ArrowUp size={16} weight="bold" />
-              </button>
-            )}
+              {/* Stop / Send button */}
+              {isGenerating ? (
+                <button
+                  type="button"
+                  onClick={onStop}
+                  className={cn(
+                    'flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium',
+                    'bg-destructive text-destructive-foreground',
+                    'hover:bg-destructive/90 active:scale-[0.97] transition-all'
+                  )}
+                  title="Stop generating"
+                >
+                  <Icon name="stop-circle" className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={!canSend}
+                  className={cn(
+                    'flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-medium transition-all',
+                    canSend
+                      ? 'bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.97]'
+                      : 'bg-muted text-muted-foreground opacity-50 cursor-not-allowed'
+                  )}
+                  title="Send (Enter)"
+                >
+                  <Icon name="arrow-up" className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-
-      <p className="text-center text-[10px] text-[var(--text-subtle)] mt-2">
-        Enter to send · Shift+Enter for newline
-      </p>
       </div>
     </div>
   );

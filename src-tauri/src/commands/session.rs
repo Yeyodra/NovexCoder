@@ -32,3 +32,34 @@ pub async fn update_session_title(
 ) -> AppResult<()> {
     session_service::update_session_title(state.pool(), &id, &title).await
 }
+
+#[tauri::command]
+pub async fn pin_session(state: State<'_, AppState>, id: String, pinned: bool) -> AppResult<()> {
+    session_service::pin_session(state.pool(), &id, pinned).await
+}
+
+#[tauri::command]
+pub async fn archive_session(
+    state: State<'_, AppState>,
+    id: String,
+    archived: bool,
+) -> AppResult<()> {
+    session_service::archive_session(state.pool(), &id, archived).await
+}
+
+#[tauri::command]
+pub async fn move_session_to_folder(
+    state: State<'_, AppState>,
+    id: String,
+    folder_id: Option<String>,
+) -> AppResult<()> {
+    session_service::move_session_to_folder(state.pool(), &id, folder_id.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn reorder_sessions(
+    state: State<'_, AppState>,
+    session_ids: Vec<String>,
+) -> AppResult<()> {
+    session_service::reorder_sessions(state.pool(), session_ids).await
+}

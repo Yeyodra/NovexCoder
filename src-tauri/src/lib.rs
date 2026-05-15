@@ -10,6 +10,7 @@ use state::AppState;
 use tauri::Manager;
 
 use crate::error::AppError;
+use crate::services::terminal_service::TerminalService;
 
 #[cfg(all(desktop, not(rust_analyzer)))]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -59,7 +60,23 @@ pub fn run() -> Result<(), AppError> {
             commands::custom_agent::list_custom_agents,
             commands::custom_agent::update_custom_agent,
             commands::custom_agent::delete_custom_agent,
-            commands::custom_agent::toggle_custom_agent_selectable
+            commands::custom_agent::toggle_custom_agent_selectable,
+            commands::session_folder::create_folder,
+            commands::session_folder::list_folders,
+            commands::session_folder::rename_folder,
+            commands::session_folder::delete_folder,
+            commands::session_folder::reorder_folders,
+            commands::session::pin_session,
+            commands::session::archive_session,
+            commands::session::move_session_to_folder,
+            commands::session::reorder_sessions,
+            commands::project::reorder_projects,
+            commands::project::update_project_meta,
+            commands::terminal::open_terminal,
+            commands::terminal::create_terminal,
+            commands::terminal::write_terminal,
+            commands::terminal::resize_terminal,
+            commands::terminal::kill_terminal,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();
@@ -96,6 +113,7 @@ pub fn run() -> Result<(), AppError> {
                 .map_err(|e| Box::new(AppError::Database(e)))?;
 
             app_handle.manage(app_state);
+            app_handle.manage(TerminalService::new());
 
             Ok(())
         })

@@ -1,94 +1,192 @@
-import React, { useState } from 'react';
-import { Robot, Code, ChartBar, TerminalWindow, Cpu, Books, SidebarSimple } from '@phosphor-icons/react';
+import React from 'react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/useUIStore';
+import { GitView } from '@/components/views/GitView';
 
-type Tab = 'agents' | 'skills' | 'metrics';
+const SIDEBAR_DEFAULT_WIDTH = 420;
+const SIDEBAR_MIN_WIDTH = 400;
+const SIDEBAR_MAX_WIDTH = 860;
 
-export const RightSidebar: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('agents');
-  const toggleRightSidebar = useUIStore((s) => s.toggleRightSidebar);
+type Tab = 'Git' | 'Files' | 'Context';
 
-  const tabs = [
-    { id: 'agents' as Tab, icon: Robot, label: 'Agents' },
-    { id: 'skills' as Tab, icon: Books, label: 'Skills' },
-    { id: 'metrics' as Tab, icon: ChartBar, label: 'Metrics' },
-  ];
+export function RightSidebar() {
+  const isOpen = useUIStore((s) => s.rightSidebarOpen);
+
+  const [width, setWidth] = React.useState(SIDEBAR_DEFAULT_WIDTH);
+  const [isResizing, setIsResizing] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState<Tab>('Git');
+  const [isMobile, setIsMobile] = React.useState(
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+
+  const sidebarRef = React.useRef<HTMLElement | null>(null);
+  const startXRef = React.useRef(0);
+  const startWidthRef = React.useRef(width);
+  const resizingWidthRef = React.useRef<number | null>(null);
+  const activePointerIdRef = React.useRef<number | null>(null);
+
+  // Track mobile breakpoint
+  React.useEffect(() => {
+    const mql = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    setIsMobile(mql.matches);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  // Cancel resize if mobile
+  React.useEffect(() => {
+    if (isMobile && isResizing) {
+      setIsResizing(false);
+    }
+  }, [isMobile, isResizing]);
+
+  // Cleanup refs on resize end
+  React.useEffect(() => {
+    if (!isResizing) {
+      resizingWidthRef.current = null;
+      activePointerIdRef.current = null;
+    }
+  }, [isResizing]);
+
+  const clamp = React.useCallback((value: number) => {
+    return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, value));
+  }, []);
+
+  const applyLiveWidth = React.useCallback((nextWidth: number) => {
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+    sidebar.style.setProperty('--oc-right-sidebar-width', `${nextWidth}px`);
+  }, []);
+
+  if (isMobile) {
+    return null;
+  }
+
+  const appliedWidth = isOpen ? clamp(width) : 0;
+
+  const handlePointerDown = (event: React.PointerEvent) => {
+    if (!isOpen) return;
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // ignore
+    }
+
+    activePointerIdRef.current = event.pointerId;
+    setIsResizing(true);
+    startXRef.current = event.clientX;
+    startWidthRef.current = appliedWidth;
+    resizingWidthRef.current = appliedWidth;
+    applyLiveWidth(appliedWidth);
+    event.preventDefault();
+  };
+
+  const handlePointerMove = (event: React.PointerEvent) => {
+    if (!isResizing || activePointerIdRef.current !== event.pointerId) return;
+
+    // Inverted: moving left = wider for right sidebar
+    const delta = startXRef.current - event.clientX;
+    const nextWidth = clamp(startWidthRef.current + delta);
+    if (resizingWidthRef.current === nextWidth) return;
+
+    resizingWidthRef.current = nextWidth;
+    applyLiveWidth(nextWidth);
+  };
+
+  const handlePointerEnd = (event: React.PointerEvent) => {
+    if (activePointerIdRef.current !== event.pointerId) return;
+
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // ignore
+    }
+
+    const finalWidth = clamp(resizingWidthRef.current ?? appliedWidth);
+    activePointerIdRef.current = null;
+    resizingWidthRef.current = null;
+    setIsResizing(false);
+    setWidth(finalWidth);
+  };
+
+  const tabs: Tab[] = ['Git', 'Files', 'Context'];
 
   return (
-    <aside className="h-full bg-[var(--bg)] border-l border-[var(--border)] flex flex-col w-[var(--sidebar-width-right)]">
-      <div className="flex items-center border-b border-[var(--border)]">
-        <button
-          onClick={toggleRightSidebar}
-          className="p-2.5 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-2)] transition-colors shrink-0"
-          title="Hide panel"
-        >
-          <SidebarSimple size={16} weight="fill" className="scale-x-[-1]" />
-        </button>
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "flex-1 flex flex-col items-center gap-1 py-3 transition-all relative group",
-              activeTab === tab.id 
-                ? "text-[var(--text)]" 
-                : "text-[var(--text-muted)] hover:text-[var(--text)]"
-            )}
-          >
-            <tab.icon size={20} weight={activeTab === tab.id ? "fill" : "regular"} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">{tab.label}</span>
-            {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />
-            )}
-          </button>
-        ))}
-      </div>
+    <aside
+      ref={sidebarRef}
+      className={cn(
+        'relative flex h-full overflow-hidden',
+        isResizing ? 'transition-none' : 'transition-[width] duration-300 ease-in-out',
+        !isOpen && 'border-l-0'
+      )}
+      style={{
+        width: 'var(--oc-right-sidebar-width)',
+        minWidth: 'var(--oc-right-sidebar-width)',
+        maxWidth: 'var(--oc-right-sidebar-width)',
+        ['--oc-right-sidebar-width' as string]: `${isResizing ? (resizingWidthRef.current ?? appliedWidth) : appliedWidth}px`,
+        overflowX: 'clip',
+      }}
+      aria-hidden={!isOpen || appliedWidth === 0}
+    >
+      {/* Resize handle — LEFT edge */}
+      {isOpen && (
+        <div
+          className={cn(
+            'absolute left-0 top-0 z-20 h-full w-[3px] cursor-col-resize hover:bg-border/80 transition-colors',
+            isResizing && 'bg-border'
+          )}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize right sidebar"
+        />
+      )}
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
-        {activeTab === 'agents' && (
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest flex items-center gap-2">
-              <Cpu size={14} weight="duotone" />
-              Active Agents
-            </h3>
-            <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-2)]/50 text-center space-y-2">
-              <div className="w-10 h-10 rounded-full bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center mx-auto">
-                <TerminalWindow size={20} weight="duotone" className="text-[var(--text)]" />
-              </div>
-              <p className="text-xs font-medium">No agents running</p>
-              <p className="text-[10px] text-[var(--text-muted)]">Spawn an agent from the chat to see progress here.</p>
+      {/* Sidebar content */}
+      <div
+        className={cn(
+          'relative z-10 flex h-full w-full flex-col overflow-hidden',
+          isResizing && 'pointer-events-none',
+          !isOpen && 'pointer-events-none select-none opacity-0'
+        )}
+        aria-hidden={!isOpen}
+      >
+        {/* Tab strip */}
+        <div className="flex items-center border-b border-border px-2 h-10 gap-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              className={cn(
+                'relative px-3 py-1.5 text-sm rounded-md transition-colors',
+                activeTab === tab
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab}
+              {activeTab === tab && (
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="flex-1 overflow-hidden">
+          {activeTab === 'Git' && <GitView />}
+          {activeTab !== 'Git' && (
+            <div className="flex items-center justify-center h-full p-4 text-muted-foreground text-sm">
+              {activeTab} — coming soon
             </div>
-          </div>
-        )}
-
-        {activeTab === 'skills' && (
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest flex items-center gap-2">
-              <Code size={14} weight="duotone" />
-              Available Skills
-            </h3>
-            <div className="grid grid-cols-1 gap-2">
-              {['git-master', 'brainstorming', 'mnemosyne', 'plan-visualizer'].map(skill => (
-                <div key={skill} className="p-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)]/30 hover:bg-[var(--surface-2)]/50 transition-colors cursor-pointer group">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono text-[var(--text)]">{skill}</span>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--text-subtle)]" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'metrics' && (
-          <div className="space-y-4 text-center py-10">
-            <ChartBar size={48} weight="duotone" className="text-[var(--border)] mx-auto mb-2" />
-            <h3 className="text-sm font-bold">Session Metrics</h3>
-            <p className="text-xs text-[var(--text-muted)]">Usage data will appear here once the session starts.</p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </aside>
   );
-};
+}

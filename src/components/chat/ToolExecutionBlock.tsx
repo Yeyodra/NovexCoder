@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { CaretDown, CaretRight, Terminal, WarningCircle } from '@phosphor-icons/react';
 import { ToolCall } from '@/types';
 import { cn } from '@/lib/utils';
+import { Icon } from '@/components/icon/Icon';
 
 interface ToolExecutionBlockProps {
   tool: ToolCall;
@@ -21,45 +21,59 @@ export const ToolExecutionBlock: React.FC<ToolExecutionBlockProps> = ({
 }) => {
   const [open, setOpen] = useState(defaultExpanded);
   const isFailed = tool.status === 'failed';
+  const isRunning = tool.status === 'running';
+  const isCompleted = tool.status === 'completed';
 
   return (
-    <div>
+    <div className="border-l-2 border-border pl-3 py-1 my-1">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 text-[12px] text-[var(--text-muted)] hover:text-[var(--text)] transition-colors py-1"
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-0.5 w-full text-left"
       >
-        {open ? <CaretDown size={10} weight="bold" /> : <CaretRight size={10} weight="bold" />}
-        <Terminal size={12} weight="duotone" />
-        <span className="font-medium font-mono">{tool.toolName}</span>
+        {/* Chevron */}
+        <Icon
+          name={open ? 'arrow-down-s' : 'arrow-right-s'}
+          className="w-3 h-3 shrink-0"
+        />
+
+        {/* Tool name */}
+        <span className="font-mono text-xs text-muted-foreground">{tool.toolName}</span>
+
+        {/* Status badge */}
         <span
           className={cn(
-            'text-[10px] px-1.5 py-0.5 rounded-full',
-            isFailed
-              ? 'text-[var(--danger)] bg-[var(--danger-bg)]'
-              : tool.status === 'running'
-                ? 'text-[var(--accent)] bg-[var(--hover-bg)]'
-                : 'text-[var(--text-subtle)] bg-[var(--surface-3)]',
+            'text-[10px] px-1.5 py-0.5 rounded-full font-medium ml-auto',
+            isFailed && 'bg-destructive/10 text-destructive',
+            isRunning && 'bg-primary/10 text-primary',
+            isCompleted && 'bg-chart-2/10 text-chart-2',
+            !isFailed && !isRunning && !isCompleted && 'bg-muted text-muted-foreground',
           )}
         >
+          {isRunning && (
+            <Icon name="loader-4" className="w-2.5 h-2.5 inline-block animate-spin mr-0.5 -mt-px" />
+          )}
           {statusLabel(tool.status)}
         </span>
       </button>
 
       {open && (
-        <div className="ml-5 pl-3 border-l-2 border-[var(--border)] space-y-1.5 mt-1 mb-1">
-          <div className="font-mono text-[11px] text-[var(--text-muted)] whitespace-pre-wrap break-all bg-[var(--surface-2)] rounded-lg px-3 py-2">
+        <div className="mt-1.5 space-y-1.5">
+          {/* Input */}
+          <div className="text-xs font-mono bg-muted/50 rounded-lg p-2 max-h-40 overflow-auto text-muted-foreground whitespace-pre-wrap break-all">
             {`> ${tool.toolName} ${tool.input}`}
           </div>
 
+          {/* Output */}
           {tool.output && (
-            <div className="font-mono text-[11px] text-[var(--text-subtle)] whitespace-pre-wrap break-all bg-[var(--surface-2)] rounded-lg px-3 py-2 max-h-48 overflow-y-auto custom-scrollbar">
+            <div className="text-xs font-mono bg-muted/50 rounded-lg p-2 max-h-40 overflow-auto text-muted-foreground whitespace-pre-wrap break-all">
               {tool.output}
             </div>
           )}
 
+          {/* Error */}
           {isFailed && (
-            <div className="flex items-start gap-1.5 text-[11px] text-[var(--danger)] bg-[var(--danger-bg)] rounded-lg px-3 py-2">
-              <WarningCircle size={13} className="mt-0.5 shrink-0" />
+            <div className="flex items-start gap-1.5 text-xs bg-destructive/10 text-destructive rounded-lg px-2 py-1.5">
+              <Icon name="close" className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <span>{tool.error ?? 'Tool execution failed.'}</span>
             </div>
           )}

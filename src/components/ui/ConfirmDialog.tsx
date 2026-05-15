@@ -74,7 +74,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             ref={confirmRef}
             onClick={onConfirm}
             className={cn(
-              'px-4 py-2 rounded-lg text-xs font-bold transition-all active:scale-95',
+              'px-4 py-2 rounded-lg text-xs font-bold transition-all active:scale-[0.97]',
               danger
                 ? 'bg-[var(--danger)] text-white hover:bg-[var(--danger-hover)]'
                 : 'bg-[var(--accent)] text-[var(--accent-fg)] hover:bg-[var(--accent-hover)]'

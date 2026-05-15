@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sparkle } from '@phosphor-icons/react';
 import { useChatStore } from '@/stores/useChatStore';
+import { BusyDots } from './BusyDots';
 
 export const StreamingMessage: React.FC = () => {
   const { streamingText, isStreaming } = useChatStore();
@@ -19,20 +20,10 @@ export const StreamingMessage: React.FC = () => {
         {streamingText ? (
           <>
             <span className="whitespace-pre-wrap">{streamingText}</span>
-            <span className="inline-block w-0.5 h-4 bg-[var(--accent)] ml-0.5 align-middle animate-pulse rounded-full" />
+            <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 align-middle animate-pulse rounded-full" />
           </>
         ) : (
-          <span className="text-[var(--text-subtle)]" aria-label="Generating">
-            {'Generating...'.split('').map((char, i) => (
-              <span
-                key={i}
-                className="wave-letter"
-                style={{ animationDelay: `${i * 0.08}s` }}
-              >
-                {char === ' ' ? '\u00A0' : char}
-              </span>
-            ))}
-          </span>
+          <BusyDots />
         )}
       </div>
     </div>

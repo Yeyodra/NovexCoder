@@ -31,6 +31,11 @@ function App() {
           title: 'New Chat',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          isPinned: false,
+          isArchived: false,
+          folderId: null,
+          parentSessionId: null,
+          sortOrder: 0,
         };
         addSession(session);
         setActiveSessionId(session.id);

@@ -38,7 +38,7 @@ export const SessionList: React.FC = () => {
   const handleNewSession = async (e: React.MouseEvent, projectId: string) => {
     e.stopPropagation();
     const now = new Date().toISOString();
-    const session = { id: generateId(), projectId, title: 'New Chat', createdAt: now, updatedAt: now };
+    const session = { id: generateId(), projectId, title: 'New Chat', createdAt: now, updatedAt: now, isPinned: false, isArchived: false, folderId: null, parentSessionId: null, sortOrder: 0 };
     addSession(session);
     setActiveSessionId(session.id);
     setExpandedProjects((prev) => new Set(prev).add(projectId));
