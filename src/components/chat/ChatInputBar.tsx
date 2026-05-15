@@ -180,14 +180,14 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
           />
 
           {/* Footer toolbar — flex-shrink-0, stays at bottom */}
-          <div className="flex items-center justify-end gap-2 px-3 py-2 flex-shrink-0">
+          <div className="flex items-center justify-end gap-2 px-3 py-2 flex-shrink-0 bg-card">
             {/* Agent selector */}
             <Select
               value={selectedAgentType}
               onValueChange={(val: string) => setSelectedAgentType(val as typeof selectedAgentType)}
               disabled={isGenerating}
             >
-              <SelectTrigger className="h-7 text-[11px] max-w-[120px]">
+              <SelectTrigger className="h-7 text-[11px] max-w-[120px] bg-card border border-border rounded-lg">
                 <SelectValue placeholder="Agent" />
               </SelectTrigger>
               <SelectContent side="top" align="end" sideOffset={4}>
@@ -206,7 +206,7 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
             {/* Provider selector */}
             {providers.filter((p) => p.isEnabled).length > 0 && (
               <Select value={defaultProviderId ?? undefined} onValueChange={setDefaultProviderId} disabled={isGenerating}>
-                <SelectTrigger className="h-7 text-[11px] max-w-[120px]">
+                <SelectTrigger className="h-7 text-[11px] max-w-[120px] bg-card border border-border rounded-lg">
                   <SelectValue placeholder="Provider">
                     {(value) => {
                       const prov = providers.find((p) => p.id === value);
@@ -225,7 +225,7 @@ export const ChatInputBar = React.forwardRef<ChatInputBarHandle, ChatInputBarPro
             {/* Model selector */}
             {enabledModels.length > 0 && (
               <Select value={selectedModelId ?? undefined} onValueChange={setSelectedModelId} disabled={isGenerating}>
-                <SelectTrigger className="h-7 text-[11px] max-w-[160px]">
+                <SelectTrigger className="h-7 text-[11px] max-w-[160px] bg-card border border-border rounded-lg">
                   <SelectValue placeholder="Model" />
                 </SelectTrigger>
                 <SelectContent side="top" align="end">
