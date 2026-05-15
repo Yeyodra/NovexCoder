@@ -4,7 +4,9 @@ import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { motion } from 'motion/react';
 import { LeftSidebar } from '@/components/layout/LeftSidebar';
 import { RightSidebar } from '@/components/layout/RightSidebar';
+import { BottomTerminalDock } from '@/components/layout/BottomTerminalDock';
 import { ChatHeader } from '@/components/layout/ChatHeader';
+import { TerminalView } from '@/components/terminal/TerminalView';
 
 import { ChatPanel } from '@/components/chat/ChatPanel';
 import { ChatInputBar, ChatInputBarHandle } from '@/components/chat/ChatInputBar';
@@ -616,6 +618,7 @@ const AppShellInner: React.FC<{
 }) => {
   const device = useDevice();
   const drawer = useDrawer();
+  
 
   // Enable edge swipe on mobile
   useEdgeSwipe({ enabled: device.isMobile });
@@ -634,15 +637,20 @@ const AppShellInner: React.FC<{
             {/* Center Column */}
             <div className="relative flex flex-1 min-w-0 flex-col bg-background rounded-tl-xl rounded-bl-xl">
               <ChatHeader onToggleLeftSidebar={device.isMobile ? drawer.toggleLeftDrawer : (!leftSidebarOpen ? toggleLeftSidebar : undefined)} />
-              <div className="flex flex-1 min-h-0">
-                {mainView === 'chat' ? (
-                  <div className="flex flex-1 flex-col min-h-0">
-                    <ChatPanel onChipClick={(text) => chatInputRef.current?.prefill(text)} />
-                    <ChatInputBar ref={chatInputRef} onSend={handleSend} onStop={handleStop} />
-                  </div>
-                ) : mainView === 'canvas' ? (
-                  <ExcalidrawCanvas />
-                ) : null}
+              <div className="flex flex-1 min-h-0 flex-col">
+                <div className="flex flex-1 min-h-0">
+                  {mainView === 'chat' ? (
+                    <div className="flex flex-1 flex-col min-h-0">
+                      <ChatPanel onChipClick={(text) => chatInputRef.current?.prefill(text)} />
+                      <ChatInputBar ref={chatInputRef} onSend={handleSend} onStop={handleStop} />
+                    </div>
+                  ) : mainView === 'canvas' ? (
+                    <ExcalidrawCanvas />
+                  ) : null}
+                </div>
+                <BottomTerminalDock>
+                  <TerminalView />
+                </BottomTerminalDock>
               </div>
             </div>
             {/* Right Sidebar — hidden on mobile (rendered in drawer instead) */}

@@ -1,12 +1,11 @@
 import React from 'react';
 import { useUIStore } from '@/stores/useUIStore';
 import { useAgentStore } from '@/stores/useAgentStore';
-import { useProjectStore } from '@/stores/useProjectStore';
 import { Icon } from '@/components/icon/Icon';
 import { cn } from '@/lib/utils';
 import { ModelSelector } from '@/components/ui/ModelSelector';
 import { useDevice } from '@/lib/device';
-import { invoke } from '@tauri-apps/api/core';
+import { useLayoutStore } from '@/stores/useLayoutStore';
 
 interface ChatHeaderProps {
   onToggleLeftSidebar?: () => void;
@@ -76,22 +75,19 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ onToggleLeftSidebar }) =
         {/* Right: terminal + flux + theme + right sidebar toggle */}
         <div className="flex items-center gap-1">
           <button
-            onClick={async () => {
-              const { activeProjectId, projects } = useProjectStore.getState();
-              const project = projects.find((p) => p.id === activeProjectId);
-              if (project?.path) {
-                try {
-                  await invoke('open_terminal', { path: project.path });
-                } catch (e) {
-                  console.error('Failed to open terminal:', e);
-                }
+            onClick={() => {
+              const { bottomPanelOpen, bottomPanel, toggleBottomPanel, setBottomPanel } = useLayoutStore.getState();
+              if (bottomPanelOpen && bottomPanel === 'terminal') {
+                toggleBottomPanel();
+              } else {
+                setBottomPanel('terminal');
               }
             }}
             className={cn(
               'rounded-md flex items-center justify-center hover:bg-accent transition-colors text-muted-foreground',
               device.isMobile ? 'min-h-[44px] min-w-[44px]' : 'h-7 w-7'
             )}
-            title="Open terminal"
+            title="Toggle terminal"
           >
             <Icon name="terminal" className="h-4 w-4" />
           </button>

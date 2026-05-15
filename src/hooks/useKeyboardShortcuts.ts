@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { SHORTCUTS, eventMatchesShortcut } from '@/lib/shortcuts';
 import { useUIStore } from '@/stores/useUIStore';
 import { useProjectStore } from '@/stores/useProjectStore';
+import { useLayoutStore } from '@/stores/useLayoutStore';
 
 /**
  * Global keyboard shortcut handler.
@@ -21,6 +22,18 @@ export function useKeyboardShortcuts() {
         if (state.isCommandPaletteOpen) {
           e.preventDefault();
           state.setCommandPaletteOpen(false);
+        }
+        return;
+      }
+
+      // Toggle terminal should work even when terminal is focused
+      if (eventMatchesShortcut(e, SHORTCUTS.TOGGLE_TERMINAL)) {
+        e.preventDefault();
+        const { bottomPanelOpen, bottomPanel } = useLayoutStore.getState();
+        if (bottomPanelOpen && bottomPanel === 'terminal') {
+          useLayoutStore.getState().toggleBottomPanel();
+        } else {
+          useLayoutStore.getState().setBottomPanel('terminal');
         }
         return;
       }

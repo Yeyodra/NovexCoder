@@ -10,6 +10,7 @@ use state::AppState;
 use tauri::Manager;
 
 use crate::error::AppError;
+use crate::services::terminal_service::TerminalService;
 
 #[cfg(all(desktop, not(rust_analyzer)))]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -72,6 +73,10 @@ pub fn run() -> Result<(), AppError> {
             commands::project::reorder_projects,
             commands::project::update_project_meta,
             commands::terminal::open_terminal,
+            commands::terminal::create_terminal,
+            commands::terminal::write_terminal,
+            commands::terminal::resize_terminal,
+            commands::terminal::kill_terminal,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();
@@ -108,6 +113,7 @@ pub fn run() -> Result<(), AppError> {
                 .map_err(|e| Box::new(AppError::Database(e)))?;
 
             app_handle.manage(app_state);
+            app_handle.manage(TerminalService::new());
 
             Ok(())
         })

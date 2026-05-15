@@ -11,6 +11,7 @@ export const SHORTCUTS = {
   NEW_SESSION: { key: 'n', meta: true },
   TOGGLE_THEME: { key: 't', meta: true, shift: true },
   CLOSE_PANEL: { key: 'Escape' },
+  TOGGLE_TERMINAL: { key: '`', meta: true },
 } as const satisfies Record<string, ShortcutDef>;
 
 export type ShortcutId = keyof typeof SHORTCUTS;
