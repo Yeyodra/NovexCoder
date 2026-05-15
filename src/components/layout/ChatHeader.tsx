@@ -46,6 +46,30 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ onToggleLeftSidebar }) =
             {selectedAgentType}
           </span>
 
+          {/* Desktop view toggle */}
+          {!device.isMobile && (
+            <div className="flex items-center gap-0.5 ml-2 bg-muted/50 rounded-lg p-0.5">
+              <button
+                onClick={() => setMainView('chat')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
+                  mainView === 'chat' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                Chat
+              </button>
+              <button
+                onClick={() => setMainView('canvas')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
+                  mainView === 'canvas' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                Canvas
+              </button>
+            </div>
+          )}
+
           {!device.isMobile && <ContextUsageDisplay used={12400} total={128000} />}
         </div>
 
