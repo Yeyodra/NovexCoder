@@ -4,7 +4,6 @@ import { useAgentStore } from '@/stores/useAgentStore';
 import { Icon } from '@/components/icon/Icon';
 import { cn } from '@/lib/utils';
 import { ModelSelector } from '@/components/ui/ModelSelector';
-import { ContextUsageDisplay } from '@/components/ui/ContextUsageDisplay';
 import { useDevice } from '@/lib/device';
 
 interface ChatHeaderProps {
@@ -70,7 +69,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ onToggleLeftSidebar }) =
             </div>
           )}
 
-          {!device.isMobile && <ContextUsageDisplay used={12400} total={128000} />}
         </div>
 
         {/* Right: flux + theme + right sidebar toggle */}
