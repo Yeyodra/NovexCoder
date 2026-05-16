@@ -77,6 +77,9 @@ pub fn run() -> Result<(), AppError> {
             commands::terminal::write_terminal,
             commands::terminal::resize_terminal,
             commands::terminal::kill_terminal,
+            commands::terminal::get_available_shells,
+            commands::terminal::get_default_shell,
+            commands::terminal::set_default_shell,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();
