@@ -74,6 +74,7 @@ export function SidebarHeader({
     try {
       const session = await invoke<{ id: string; title: string; createdAt: string; updatedAt: string }>('create_session', {
         projectId: activeProjectId,
+        title: 'New Chat',
       });
       addSession({
         id: session.id,

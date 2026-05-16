@@ -134,6 +134,7 @@ export const SessionNodeItem = memo(function SessionNodeItem({
       <DropdownMenu open={contextMenuOpen} onOpenChange={setContextMenuOpen}>
         <DropdownMenuTrigger
           disabled
+          nativeButton={false}
           render={
             <div
               className={cn(
