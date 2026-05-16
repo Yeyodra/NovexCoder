@@ -8,6 +8,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { SessionNode, DisplayMode } from './types';
 import { formatCompactDate, getHighlightRanges } from './utils';
 
@@ -30,6 +38,7 @@ interface SessionNodeItemProps {
   onDelete: (id: string) => void;
   onMoveToFolder: (id: string, folderId: string | null) => void;
   onToggleSelect: (id: string) => void;
+  onExportMarkdown: (id: string, includeChildren: boolean) => void;
 }
 
 // ─── Highlighted Title ───────────────────────────────────────────────────────
@@ -71,10 +80,13 @@ export const SessionNodeItem = memo(function SessionNodeItem({
   onDelete,
   onMoveToFolder,
   onToggleSelect,
+  onExportMarkdown,
 }: SessionNodeItemProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(node.title);
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [includeChildren, setIncludeChildren] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when entering rename mode
@@ -236,6 +248,18 @@ export const SessionNodeItem = memo(function SessionNodeItem({
             <Icon name="pushpin" className="size-3.5" />
             {node.isPinned ? 'Unpin' : 'Pin'}
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              if (hasChildren) {
+                setExportDialogOpen(true);
+              } else {
+                onExportMarkdown(node.id, false);
+              }
+            }}
+          >
+            <Icon name="download" className="size-3.5" />
+            Export Markdown
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
@@ -246,6 +270,44 @@ export const SessionNodeItem = memo(function SessionNodeItem({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Export Markdown Dialog */}
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Export Markdown</DialogTitle>
+            <DialogDescription>
+              This session has {node.children.length} sub-sessions. Include them in the export?
+            </DialogDescription>
+          </DialogHeader>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeChildren}
+              onChange={(e) => setIncludeChildren(e.target.checked)}
+              className="size-4 rounded border-border"
+            />
+            <span className="text-sm text-foreground">Include sub-sessions</span>
+          </label>
+          <DialogFooter>
+            <button
+              onClick={() => setExportDialogOpen(false)}
+              className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-accent transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                onExportMarkdown(node.id, includeChildren);
+                setExportDialogOpen(false);
+              }}
+              className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              Export
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Expanded children (recursive) */}
       {isExpanded && hasChildren && (
@@ -269,6 +331,7 @@ export const SessionNodeItem = memo(function SessionNodeItem({
               onDelete={onDelete}
               onMoveToFolder={onMoveToFolder}
               onToggleSelect={onToggleSelect}
+              onExportMarkdown={onExportMarkdown}
             />
           ))}
         </div>

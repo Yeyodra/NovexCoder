@@ -68,6 +68,12 @@ impl From<tauri::Error> for AppError {
     }
 }
 
+impl From<tauri_plugin_opener::Error> for AppError {
+    fn from(value: tauri_plugin_opener::Error) -> Self {
+        Self::Internal(value.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

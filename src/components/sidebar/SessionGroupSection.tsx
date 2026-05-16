@@ -38,6 +38,7 @@ interface SessionGroupSectionProps {
   onDeleteFolder: (id: string) => void;
   registerSentinel: (projectId: string, el: HTMLDivElement | null) => void;
   onNewSession: (projectId: string) => void;
+  onExportMarkdown: (id: string, includeChildren: boolean) => void;
   dragHandleProps?: Record<string, unknown>;
 }
 
@@ -109,6 +110,7 @@ export const SessionGroupSection = memo(function SessionGroupSection({
   onDeleteFolder,
   registerSentinel,
   onNewSession,
+  onExportMarkdown,
   dragHandleProps,
 }: SessionGroupSectionProps) {
   // Separate sessions by folder
@@ -223,6 +225,7 @@ export const SessionGroupSection = memo(function SessionGroupSection({
                           onDelete={onDeleteSession}
                           onMoveToFolder={onMoveToFolder}
                           onToggleSelect={onToggleSelect}
+                          onExportMarkdown={onExportMarkdown}
                         />
                       </SortableSessionItem>
                     ))}
@@ -253,6 +256,7 @@ export const SessionGroupSection = memo(function SessionGroupSection({
                   onDelete={onDeleteSession}
                   onMoveToFolder={onMoveToFolder}
                   onToggleSelect={onToggleSelect}
+                  onExportMarkdown={onExportMarkdown}
                 />
               </SortableSessionItem>
             ))}

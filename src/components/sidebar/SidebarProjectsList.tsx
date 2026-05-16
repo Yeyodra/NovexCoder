@@ -34,6 +34,7 @@ interface SidebarProjectsListProps {
   onReorderProjects: (projectIds: string[]) => void;
   onReorderSessions: (sessionIds: string[]) => void;
   onNewSession: (projectId: string) => void;
+  onExportMarkdown: (id: string, includeChildren: boolean) => void;
   registerSentinel: (projectId: string, el: HTMLDivElement | null) => void;
 }
 
@@ -64,6 +65,7 @@ export const SidebarProjectsList = memo(function SidebarProjectsList({
   onReorderProjects,
   onReorderSessions,
   onNewSession,
+  onExportMarkdown,
   registerSentinel,
 }: SidebarProjectsListProps) {
   const projectIds = projects.map((p) => p.id);
@@ -142,6 +144,7 @@ export const SidebarProjectsList = memo(function SidebarProjectsList({
                 onRenameFolder={onRenameFolder}
                 onDeleteFolder={onDeleteFolder}
                 onNewSession={onNewSession}
+                onExportMarkdown={onExportMarkdown}
                 registerSentinel={registerSentinel}
               />
             </SortableProjectItem>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Toaster } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useProjectStore } from '@/stores/useProjectStore';
@@ -46,7 +47,12 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeProjectId, addSession, setActiveSessionId]);
 
-  return <AppShell />;
+  return (
+    <>
+      <AppShell />
+      <Toaster position="bottom-right" richColors />
+    </>
+  );
 }
 
 export default App;

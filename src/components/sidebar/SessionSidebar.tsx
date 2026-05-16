@@ -1,9 +1,11 @@
 import { useMemo, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'sonner';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useSessionSidebarStore } from '@/stores/useSessionSidebarStore';
-import { Session, SessionFolder } from '@/types';
+import { Session, SessionFolder, Message, AgentRun } from '@/types';
+import { formatSessionAsMarkdown, buildExportFilename, ChildSessionExport } from '@/lib/exportSession';
 import { ScrollShadow } from '@/components/ui/ScrollShadow';
 import { SidebarHeader } from './SidebarHeader';
 import { SidebarFooter } from './SidebarFooter';
@@ -134,6 +136,86 @@ export function SessionSidebar() {
     setShowBulkDelete(true);
   }, []);
 
+  const handleExportMarkdown = useCallback(async (id: string, includeChildren: boolean) => {
+    const messages = await invoke<Message[]>('get_messages', { sessionId: id });
+    const agentRuns = await invoke<AgentRun[]>('list_agent_runs', { sessionId: id });
+
+    // Combine user messages with assistant outputs from agent runs
+    const allMessages: Message[] = [...(messages || [])];
+    for (const run of agentRuns) {
+      if (run.status === 'completed' && run.output && !run.parentAgentRunId) {
+        allMessages.push({
+          id: run.id,
+          sessionId: id,
+          role: 'assistant',
+          content: run.output,
+          createdAt: run.completedAt || run.createdAt,
+        });
+      }
+    }
+    allMessages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    if (allMessages.length === 0) {
+      toast.error('Nothing to export');
+      return;
+    }
+
+    const session = sessions.find(s => s.id === id);
+    const sessionTitle = session?.title;
+
+    let childSessions: ChildSessionExport[] | undefined;
+    if (includeChildren) {
+      const childNodes = sessions.filter(s => s.parentSessionId === id);
+      if (childNodes.length > 0) {
+        const children: ChildSessionExport[] = [];
+        let skippedCount = 0;
+        for (const child of childNodes) {
+          try {
+            const childMessages = await invoke<Message[]>('get_messages', { sessionId: child.id });
+            const childAgentRuns = await invoke<AgentRun[]>('list_agent_runs', { sessionId: child.id });
+            const childAllMessages: Message[] = [...(childMessages || [])];
+            for (const run of childAgentRuns) {
+              if (run.status === 'completed' && run.output && !run.parentAgentRunId) {
+                childAllMessages.push({
+                  id: run.id,
+                  sessionId: child.id,
+                  role: 'assistant',
+                  content: run.output,
+                  createdAt: run.completedAt || run.createdAt,
+                });
+              }
+            }
+            childAllMessages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+            children.push({ title: child.title, messages: childAllMessages, children: [] });
+          } catch {
+            skippedCount++;
+          }
+        }
+        childSessions = children;
+        if (skippedCount > 0) {
+          toast.warning(`Exported, but skipped ${skippedCount} sub-sessions that could not be loaded.`);
+        }
+      }
+    }
+
+    const content = formatSessionAsMarkdown(allMessages, sessionTitle, childSessions);
+    const defaultFileName = buildExportFilename(sessionTitle);
+
+    try {
+      const savedPath = await invoke<string | null>('export_session_markdown', { defaultFileName, content });
+      if (savedPath) {
+        toast.success('Session exported', {
+          action: {
+            label: 'Reveal in Explorer',
+            onClick: () => invoke('reveal_in_explorer', { path: savedPath }),
+          },
+        });
+      }
+    } catch {
+      toast.error('Failed to export session');
+    }
+  }, [sessions]);
+
   const handleConfirmBulkDelete = useCallback(() => {
     for (const id of multiSelect.selectedSessionIds) {
       actions.handleDeleteSession(id);
@@ -189,10 +271,11 @@ export function SessionSidebar() {
           onToggleFolderExpand={toggleFolderExpand}
           onRenameFolder={actions.handleRenameFolder}
           onDeleteFolder={handleDeleteFolder}
-          onReorderProjects={reorderProjects}
-          onReorderSessions={reorderSessions}
-          onNewSession={handleNewSession}
-          registerSentinel={registerSentinel}
+           onReorderProjects={reorderProjects}
+            onReorderSessions={reorderSessions}
+            onNewSession={handleNewSession}
+            onExportMarkdown={handleExportMarkdown}
+            registerSentinel={registerSentinel}
         />
       </ScrollShadow>
 

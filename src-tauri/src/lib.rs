@@ -80,6 +80,8 @@ pub fn run() -> Result<(), AppError> {
             commands::terminal::get_available_shells,
             commands::terminal::get_default_shell,
             commands::terminal::set_default_shell,
+            commands::export::export_session_markdown,
+            commands::export::reveal_in_explorer,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();
