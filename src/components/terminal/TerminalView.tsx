@@ -125,7 +125,7 @@ export function TerminalView() {
   return (
     <div className="flex h-full flex-col">
       {/* Tab bar */}
-      <div className="flex items-center justify-between border-b border-border bg-sidebar px-2">
+      <div className="flex items-center justify-between border-b border-border bg-background px-2">
         {/* Left: tabs */}
         <div className="flex items-center gap-0.5 overflow-x-auto py-1">
           {tabs.map((tab) => (

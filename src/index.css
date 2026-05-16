@@ -30,7 +30,7 @@
     --text-micro: 0.875rem;
 
     /* Dark Theme (default) */
-    --background: oklch(0.14 0.01 30);
+    --background: oklch(0.20 0.00 0);
     --foreground: oklch(0.85 0.02 90);
     --card: oklch(0.19 0.01 40);
     --card-foreground: oklch(0.85 0.02 90);
@@ -55,7 +55,7 @@
     --chart-3: oklch(0.7 0.13 95);
     --chart-4: oklch(0.65 0.14 45);
     --chart-5: oklch(0.68 0.12 55);
-    --sidebar: oklch(0.19 0.01 30);
+    --sidebar: oklch(0.24 0.00 0);
     --sidebar-foreground: oklch(0.85 0.02 90);
     --sidebar-primary: oklch(0.77 0.17 85);
     --sidebar-primary-foreground: oklch(0.16 0.01 30);
