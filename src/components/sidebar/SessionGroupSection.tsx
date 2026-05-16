@@ -1,7 +1,8 @@
 import { memo } from 'react';
-import { CaretRight, DotsSixVertical } from '@phosphor-icons/react';
+import { DotsSixVertical } from '@phosphor-icons/react';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
+import { Icon } from '@/components/icon/Icon';
 import { Project, Session, SessionFolder } from '@/types';
 import { DisplayMode } from './types';
 import { SessionNodeItem } from './SessionNodeItem';
@@ -121,7 +122,7 @@ export const SessionGroupSection = memo(function SessionGroupSection({
 
       {/* Project header */}
       <div
-        className={`flex items-center gap-1 px-1.5 py-1.5 cursor-pointer hover:bg-[var(--hover-bg)] rounded-sm sticky top-0 z-10 ${
+        className={`group/gh flex items-center gap-1 px-1.5 py-1.5 cursor-pointer hover:bg-[var(--hover-bg)] rounded-sm sticky top-0 z-10 ${
           isStuck ? 'bg-[var(--sidebar-bg)] shadow-sm' : ''
         }`}
         onClick={onToggleCollapse}
@@ -131,15 +132,22 @@ export const SessionGroupSection = memo(function SessionGroupSection({
             <DotsSixVertical size={12} className="text-[var(--muted-foreground)]" />
           </div>
         )}
-        <CaretRight
-          size={12}
-          className={`text-[var(--muted-foreground)] transition-transform shrink-0 ${!isCollapsed ? 'rotate-90' : ''}`}
-        />
+        {/* Icon: folder when collapsed, chevron when expanded. On hover: always show chevron */}
+        <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+          {isCollapsed ? (
+            <>
+              <Icon name="folder" className="h-3.5 w-3.5 text-muted-foreground group-hover/gh:hidden" />
+              <Icon name="arrow-right-s" className="h-3.5 w-3.5 text-muted-foreground hidden group-hover/gh:block" />
+            </>
+          ) : (
+            <Icon name="arrow-down-s" className="h-3.5 w-3.5 text-muted-foreground" />
+          )}
+        </span>
         {project.icon && <span className="text-sm shrink-0">{project.icon}</span>}
-        <span className="flex-1 min-w-0 truncate text-[var(--text-ui-label)] font-medium text-[var(--foreground)]">
+        <span className="flex-1 min-w-0 truncate text-[0.8125rem] font-normal text-foreground/90">
           {project.name}
         </span>
-        <span className="text-[var(--text-micro)] text-[var(--muted-foreground)] shrink-0">
+        <span className="text-[0.72rem] text-muted-foreground/70 shrink-0">
           {sessions.length}
         </span>
       </div>
