@@ -4,7 +4,9 @@ import { useUIStore } from '@/stores/useUIStore';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import { cn } from '@/lib/utils';
+import { Project, Session } from '@/types';
 
 interface SidebarHeaderProps {
   searchQuery: string;
@@ -35,7 +37,40 @@ export function SidebarHeader({
     }
   }, [isSearchOpen]);
 
+  const addProject = useProjectStore((s) => s.addProject);
+  const setActiveProjectId = useProjectStore((s) => s.setActiveProjectId);
+
   const handleNewSession = useCallback(async () => {
+    if (!activeProjectId) {
+      // No project exists — trigger project creation flow
+      try {
+        const selected = await open({ directory: true, multiple: false });
+        if (!selected || typeof selected !== 'string') return;
+
+        const folderName = selected.split(/[/\\]/).filter(Boolean).pop() ?? selected;
+        const project = await invoke<Project>('create_project', { name: folderName, path: selected });
+        addProject(project);
+        setActiveProjectId(project.id);
+
+        const session = await invoke<Session>('create_session', { projectId: project.id });
+        addSession({
+          id: session.id,
+          title: session.title,
+          projectId: project.id,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+          isPinned: false,
+          isArchived: false,
+          folderId: null,
+          parentSessionId: null,
+          sortOrder: 0,
+        });
+        setActiveSessionId(session.id);
+      } catch (err) {
+        console.error('Failed to create project:', err);
+      }
+      return;
+    }
     try {
       const session = await invoke<{ id: string; title: string; createdAt: string; updatedAt: string }>('create_session', {
         projectId: activeProjectId,
@@ -43,7 +78,7 @@ export function SidebarHeader({
       addSession({
         id: session.id,
         title: session.title,
-        projectId: activeProjectId ?? '',
+        projectId: activeProjectId,
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
         isPinned: false,
@@ -56,7 +91,7 @@ export function SidebarHeader({
     } catch (err) {
       console.error('Failed to create session:', err);
     }
-  }, [activeProjectId, addSession, setActiveSessionId]);
+  }, [activeProjectId, addSession, setActiveSessionId, addProject, setActiveProjectId]);
 
   return (
     <div className="flex flex-col">
