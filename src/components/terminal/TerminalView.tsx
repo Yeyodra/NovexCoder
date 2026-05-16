@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/icon/Icon';
@@ -6,14 +6,33 @@ import { useTerminalStore } from '@/stores/useTerminalStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useLayoutStore } from '@/stores/useLayoutStore';
 import { TerminalViewport } from './TerminalViewport';
+import { ShellPicker } from './ShellPicker';
+import type { ShellInfo } from '@/types/shell';
 
 export function TerminalView() {
   const { tabs, activeTabId, createTab, setActiveTab, setTabSessionId, setTabLifecycle } =
     useTerminalStore();
   const isFullscreen = useLayoutStore((s) => s.bottomPanelFullscreen);
 
-  const handleCreateTab = useCallback(() => {
-    const tabId = createTab();
+  const [shells, setShells] = useState<ShellInfo[]>([]);
+  const [defaultShellId, setDefaultShellId] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      invoke<ShellInfo[]>('get_available_shells'),
+      invoke<string | null>('get_default_shell'),
+    ]).then(([shellsResult, defaultId]) => {
+      setShells(shellsResult);
+      if (defaultId && shellsResult.some((s) => s.id === defaultId)) {
+        setDefaultShellId(defaultId);
+      } else if (shellsResult.length > 0) {
+        setDefaultShellId(shellsResult[0].id);
+      }
+    }).catch(console.error);
+  }, []);
+
+  const handleCreateTab = useCallback((shell?: ShellInfo) => {
+    const tabId = createTab(shell);
     // Delay terminal session creation to let TerminalViewport mount and register event listeners
     setTimeout(async () => {
       // Read fresh project path from store (not from stale closure)
@@ -21,7 +40,13 @@ export function TerminalView() {
       const project = projects.find((p) => p.id === activeProjectId);
       const cwd = project?.path || null;
       try {
-        const sessionId = await invoke<string>('create_terminal', { cwd, cols: 80, rows: 24 });
+        const sessionId = await invoke<string>('create_terminal', {
+          cwd,
+          cols: 80,
+          rows: 24,
+          shell: shell?.path || null,
+          shellId: shell?.id || null,
+        });
         setTabSessionId(tabId, sessionId);
         setTabLifecycle(tabId, 'running');
       } catch (err) {
@@ -30,6 +55,20 @@ export function TerminalView() {
       }
     }, 50);
   }, [createTab, setTabSessionId, setTabLifecycle]);
+
+  const handleCreateDefault = useCallback(() => {
+    const defaultShell = shells.find((s) => s.id === defaultShellId) || shells[0];
+    handleCreateTab(defaultShell);
+  }, [shells, defaultShellId, handleCreateTab]);
+
+  const handleSelectShell = useCallback((shell: ShellInfo) => {
+    handleCreateTab(shell);
+  }, [handleCreateTab]);
+
+  const handleSetDefault = useCallback((shell: ShellInfo) => {
+    setDefaultShellId(shell.id);
+    invoke('set_default_shell', { shellId: shell.id }).catch(console.error);
+  }, []);
 
   const bottomPanelOpen = useLayoutStore((s) => s.bottomPanelOpen);
 
@@ -125,14 +164,13 @@ export function TerminalView() {
         </div>
         {/* Right: controls */}
         <div className="flex items-center gap-0.5 ml-auto pl-2">
-          {/* New tab button */}
-          <button
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            onClick={handleCreateTab}
-            title="New terminal"
-          >
-            <Icon name="add" className="h-3.5 w-3.5" />
-          </button>
+          <ShellPicker
+            shells={shells}
+            defaultShellId={defaultShellId}
+            onCreateDefault={handleCreateDefault}
+            onSelectShell={handleSelectShell}
+            onSetDefault={handleSetDefault}
+          />
           {/* Fullscreen toggle */}
           <button
             className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"

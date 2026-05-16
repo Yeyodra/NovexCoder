@@ -62,6 +62,8 @@ impl TerminalService {
         cwd: Option<String>,
         cols: u16,
         rows: u16,
+        shell_path: Option<String>,
+        shell_id: Option<String>,
     ) -> AppResult<String> {
         let session_id = uuid::Uuid::new_v4().to_string();
 
@@ -76,7 +78,7 @@ impl TerminalService {
             })
             .map_err(|e| AppError::Internal(format!("Failed to open PTY: {e}")))?;
 
-        let mut cmd = Self::build_shell_command();
+        let mut cmd = Self::build_shell_command(shell_path.as_deref(), shell_id.as_deref());
         if let Some(ref dir) = cwd {
             cmd.cwd(dir);
         }
@@ -250,13 +252,29 @@ impl TerminalService {
     }
 
     #[cfg(target_os = "windows")]
-    fn build_shell_command() -> CommandBuilder {
-        CommandBuilder::new("powershell.exe")
+    fn build_shell_command(shell_path: Option<&str>, shell_id: Option<&str>) -> CommandBuilder {
+        match shell_path {
+            Some(path) => {
+                let mut cmd = CommandBuilder::new(path);
+                if let Some(id) = shell_id {
+                    for arg in crate::services::shell_service::get_shell_args(id) {
+                        cmd.arg(arg);
+                    }
+                }
+                cmd
+            }
+            None => CommandBuilder::new("powershell.exe"),
+        }
     }
 
     #[cfg(not(target_os = "windows"))]
-    fn build_shell_command() -> CommandBuilder {
-        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-        CommandBuilder::new(shell)
+    fn build_shell_command(shell_path: Option<&str>, _shell_id: Option<&str>) -> CommandBuilder {
+        match shell_path {
+            Some(path) => CommandBuilder::new(path),
+            None => {
+                let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
+                CommandBuilder::new(shell)
+            }
+        }
     }
 }

@@ -8,6 +8,7 @@ pub mod provider_model;
 pub mod session;
 pub mod session_folder;
 pub mod drawing;
+pub mod shell;
 pub mod tool_call;
 
 pub use agent_config::AgentConfig;
@@ -20,6 +21,7 @@ pub use provider::{fixed_base_url, Provider};
 pub use provider_model::ProviderModelConfig;
 pub use session::Session;
 pub use session_folder::SessionFolder;
+pub use shell::ShellInfo;
 pub use tool_call::ToolCall;
 
 
