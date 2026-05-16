@@ -63,7 +63,17 @@ export function TerminalViewport({ sessionId, onData, onResize }: TerminalViewpo
 
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(webLinksAddon);
-    terminal.open(containerRef.current);
+
+    // Delay open() until container has dimensions to avoid xterm RenderService crash
+    const container = containerRef.current;
+    const tryOpen = () => {
+      if (container.clientWidth > 0 && container.clientHeight > 0) {
+        terminal.open(container);
+      } else {
+        requestAnimationFrame(tryOpen);
+      }
+    };
+    tryOpen();
 
     terminal.onData((data) => {
       onDataRef.current(data);
