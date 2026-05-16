@@ -1,12 +1,11 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { Icon } from '@/components/icon/Icon';
 import { useUIStore } from '@/stores/useUIStore';
-import { useSessionStore } from '@/stores/useSessionStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { cn } from '@/lib/utils';
-import { Project, Session } from '@/types';
+import { Project } from '@/types';
 
 interface SidebarHeaderProps {
   searchQuery: string;
@@ -27,9 +26,8 @@ export function SidebarHeader({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const toggleLeftSidebar = useUIStore((s) => s.toggleLeftSidebar);
-  const addSession = useSessionStore((s) => s.addSession);
-  const setActiveSessionId = useSessionStore((s) => s.setActiveSessionId);
-  const activeProjectId = useProjectStore((s) => s.activeProjectId);
+  const addProject = useProjectStore((s) => s.addProject);
+  const setActiveProjectId = useProjectStore((s) => s.setActiveProjectId);
 
   useEffect(() => {
     if (isSearchOpen) {
@@ -37,91 +35,53 @@ export function SidebarHeader({
     }
   }, [isSearchOpen]);
 
-  const addProject = useProjectStore((s) => s.addProject);
-  const setActiveProjectId = useProjectStore((s) => s.setActiveProjectId);
-
-  const handleNewSession = useCallback(async () => {
-    if (!activeProjectId) {
-      // No project exists — trigger project creation flow
-      try {
-        const selected = await open({ directory: true, multiple: false });
-        if (!selected || typeof selected !== 'string') return;
-
-        const folderName = selected.split(/[/\\]/).filter(Boolean).pop() ?? selected;
-        const project = await invoke<Project>('create_project', { name: folderName, path: selected });
-        addProject(project);
-        setActiveProjectId(project.id);
-
-        const session = await invoke<Session>('create_session', { projectId: project.id });
-        addSession({
-          id: session.id,
-          title: session.title,
-          projectId: project.id,
-          createdAt: session.createdAt,
-          updatedAt: session.updatedAt,
-          isPinned: false,
-          isArchived: false,
-          folderId: null,
-          parentSessionId: null,
-          sortOrder: 0,
-        });
-        setActiveSessionId(session.id);
-      } catch (err) {
-        console.error('Failed to create project:', err);
-      }
-      return;
-    }
+  const handleOpenDirectory = useCallback(async () => {
     try {
-      const session = await invoke<{ id: string; title: string; createdAt: string; updatedAt: string }>('create_session', {
-        projectId: activeProjectId,
-        title: 'New Chat',
-      });
-      addSession({
-        id: session.id,
-        title: session.title,
-        projectId: activeProjectId,
-        createdAt: session.createdAt,
-        updatedAt: session.updatedAt,
-        isPinned: false,
-        isArchived: false,
-        folderId: null,
-        parentSessionId: null,
-        sortOrder: 0,
-      });
-      setActiveSessionId(session.id);
+      const selected = await open({ directory: true, multiple: false });
+      if (!selected || typeof selected !== 'string') return;
+
+      const folderName = selected.split(/[/\\]/).filter(Boolean).pop() ?? selected;
+      const project = await invoke<Project>('create_project', { name: folderName, path: selected });
+      addProject(project);
+      setActiveProjectId(project.id);
     } catch (err) {
-      console.error('Failed to create session:', err);
+      console.error('Failed to open directory:', err);
     }
-  }, [activeProjectId, addSession, setActiveSessionId, addProject, setActiveProjectId]);
+  }, [addProject, setActiveProjectId]);
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col select-none flex-shrink-0">
       {/* Top row */}
-      <div className="flex items-center justify-between px-3 py-2 h-12">
-        {/* Left: sidebar collapse */}
-        <button
-          type="button"
-          className={headerButtonClass}
-          onClick={toggleLeftSidebar}
-          aria-label="Toggle sidebar"
-        >
-          <Icon name="menu-fold-2" className="h-4 w-4" />
-        </button>
-
-        {/* Right: new session + search */}
-        <div className="flex items-center gap-0.5">
+      <div className="flex items-center justify-between px-2.5 py-1 min-h-8">
+        {/* Left: sidebar toggle + add project */}
+        <div className="flex items-center gap-1">
           <button
             type="button"
             className={headerButtonClass}
-            onClick={handleNewSession}
-            aria-label="New session"
+            onClick={toggleLeftSidebar}
+            title="Toggle sidebar"
+            aria-label="Toggle sidebar"
           >
-            <Icon name="add" className="h-4 w-4" />
+            <Icon name="layout-left" className="h-[18px] w-[18px]" />
           </button>
+          <button
+            type="button"
+            className={headerButtonClass}
+            onClick={handleOpenDirectory}
+            title="Add project"
+            aria-label="Add project"
+          >
+            <Icon name="folder-add" className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Right: search */}
+        <div className="flex items-center gap-1">
           <button
             type="button"
             className={cn(headerButtonClass, isSearchOpen && 'bg-accent text-foreground')}
             onClick={onToggleSearch}
+            title="Search sessions"
             aria-label="Search sessions"
           >
             <Icon name="search" className="h-4 w-4" />
