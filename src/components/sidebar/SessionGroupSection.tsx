@@ -37,6 +37,7 @@ interface SessionGroupSectionProps {
   onRenameFolder: (id: string, name: string) => void;
   onDeleteFolder: (id: string) => void;
   registerSentinel: (projectId: string, el: HTMLDivElement | null) => void;
+  onNewSession: (projectId: string) => void;
   dragHandleProps?: Record<string, unknown>;
 }
 
@@ -107,6 +108,7 @@ export const SessionGroupSection = memo(function SessionGroupSection({
   onRenameFolder,
   onDeleteFolder,
   registerSentinel,
+  onNewSession,
   dragHandleProps,
 }: SessionGroupSectionProps) {
   // Separate sessions by folder
@@ -165,6 +167,15 @@ export const SessionGroupSection = memo(function SessionGroupSection({
         <span className="text-[0.72rem] text-muted-foreground/70 shrink-0">
           {sessions.length}
         </span>
+        <button
+          type="button"
+          className="h-5 w-5 rounded flex items-center justify-center shrink-0 opacity-0 group-hover/gh:opacity-100 text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
+          onClick={(e) => { e.stopPropagation(); onNewSession(project.id); }}
+          title="New session"
+          aria-label="New session"
+        >
+          <Icon name="add" className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       {/* Body */}

@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useSessionStore } from '@/stores/useSessionStore';
 import { useProjectStore } from '@/stores/useProjectStore';
 import { useSessionSidebarStore } from '@/stores/useSessionSidebarStore';
@@ -46,6 +47,18 @@ export function SessionSidebar() {
   const { items: activityItems } = useActivitySection();
 
   useSidebarPersistence();
+
+  // --- New session handler ---
+  const addSession = useSessionStore((s) => s.addSession);
+  const handleNewSession = useCallback(async (projectId: string) => {
+    try {
+      const session = await invoke<Session>('create_session', { projectId, title: 'New Chat' });
+      addSession(session);
+      setActiveSessionId(session.id);
+    } catch (err) {
+      console.error('Failed to create session:', err);
+    }
+  }, [addSession, setActiveSessionId]);
 
   // --- Local state ---
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -178,6 +191,7 @@ export function SessionSidebar() {
           onDeleteFolder={handleDeleteFolder}
           onReorderProjects={reorderProjects}
           onReorderSessions={reorderSessions}
+          onNewSession={handleNewSession}
           registerSentinel={registerSentinel}
         />
       </ScrollShadow>
