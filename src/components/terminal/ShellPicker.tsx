@@ -38,7 +38,7 @@ export const ShellPicker = React.memo(function ShellPicker({
 
       {/* Right: shell picker dropdown */}
       <DropdownMenu>
-        <DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild>
           <button
             className="flex h-7 w-5 items-center justify-center rounded-r-md hover:bg-accent hover:text-foreground transition-colors border-l border-border/50"
             title="Select shell"
@@ -61,8 +61,8 @@ export const ShellPicker = React.memo(function ShellPicker({
                   <Icon name="star-fill" className="h-3 w-3 text-yellow-500" />
                 )}
                 {shell.id !== defaultShellId && (
-                  <button
-                    className="opacity-0 group-hover:opacity-100 hover:text-yellow-500 transition-opacity"
+                  <span
+                    className="opacity-0 group-hover:opacity-100 hover:text-yellow-500 transition-opacity cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation()
                       onSetDefault(shell)
@@ -70,7 +70,7 @@ export const ShellPicker = React.memo(function ShellPicker({
                     title="Set as default"
                   >
                     <Icon name="star" className="h-3 w-3" />
-                  </button>
+                  </span>
                 )}
               </span>
             </DropdownMenuItem>
