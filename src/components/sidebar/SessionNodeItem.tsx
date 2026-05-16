@@ -138,12 +138,12 @@ export const SessionNodeItem = memo(function SessionNodeItem({
           render={
             <div
               className={cn(
-                'group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors',
+                'group flex items-center gap-2 px-1.5 py-1 my-0.5 rounded-sm cursor-pointer transition-colors',
                 isActive && 'bg-accent text-foreground',
                 !isActive && 'hover:bg-accent/50',
                 selectionMode && isSelected && 'ring-1 ring-primary/40'
               )}
-              style={{ paddingLeft: `${8 + node.depth * 12}px` }}
+              style={{ paddingLeft: `${6 + node.depth * 12}px` }}
               onClick={handleClick}
               onDoubleClick={handleDoubleClick}
               onContextMenu={handleContextMenu}
@@ -192,16 +192,16 @@ export const SessionNodeItem = memo(function SessionNodeItem({
                 className="w-full bg-background border border-border rounded-md px-1.5 py-0.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
               />
             ) : (
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col gap-0">
                 <span
                   className={cn(
-                    'text-sm font-medium truncate',
+                    'text-[0.8125rem] font-normal truncate leading-tight',
                     isActive ? 'text-primary' : 'text-foreground'
                   )}
                 >
                   <HighlightedText text={node.title} query={searchQuery} />
                 </span>
-                <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                <span className="text-[0.72rem] text-muted-foreground/70 leading-tight">
                   {formatCompactDate(node.updatedAt)}
                 </span>
               </div>

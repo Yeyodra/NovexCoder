@@ -146,7 +146,7 @@ export const SessionGroupSection = memo(function SessionGroupSection({
 
       {/* Body */}
       {!isCollapsed && (
-        <div className="pl-2">
+        <div className="pl-5">
           {/* Folders as drop targets */}
           {folders.map((folder) => {
             const folderSessions = folderedSessions.get(folder.id) || [];
