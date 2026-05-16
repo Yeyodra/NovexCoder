@@ -164,18 +164,20 @@ export const SessionGroupSection = memo(function SessionGroupSection({
         <span className="flex-1 min-w-0 truncate text-[0.8125rem] font-normal text-foreground/90">
           {project.name}
         </span>
-        <span className="text-[0.72rem] text-muted-foreground/70 shrink-0">
-          {sessions.length}
-        </span>
-        <button
-          type="button"
-          className="h-5 w-5 rounded flex items-center justify-center shrink-0 opacity-0 group-hover/gh:opacity-100 text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
-          onClick={(e) => { e.stopPropagation(); onNewSession(project.id); }}
-          title="New session"
-          aria-label="New session"
-        >
-          <Icon name="add" className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            className="h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            onClick={(e) => { e.stopPropagation(); onNewSession(project.id); }}
+            title="New session"
+            aria-label="New session"
+          >
+            <Icon name="add" className="h-3.5 w-3.5" />
+          </button>
+          <span className="text-[0.72rem] text-muted-foreground/70">
+            {sessions.length}
+          </span>
+        </div>
       </div>
 
       {/* Body */}
