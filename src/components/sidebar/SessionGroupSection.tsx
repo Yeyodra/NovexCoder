@@ -40,6 +40,21 @@ interface SessionGroupSectionProps {
   dragHandleProps?: Record<string, unknown>;
 }
 
+// ─── Deterministic color from project ID ──────────────────────────────────────
+
+const PROJECT_COLORS = [
+  '#e06c75', '#e5c07b', '#98c379', '#56b6c2', '#61afef', '#c678dd', '#d19a66',
+  '#be5046', '#7ec699', '#f78c6c', '#c3e88d', '#89ddff', '#82aaff', '#f07178',
+];
+
+function getProjectColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+  }
+  return PROJECT_COLORS[Math.abs(hash) % PROJECT_COLORS.length];
+}
+
 // ─── Droppable Folder Wrapper ─────────────────────────────────────────────────
 
 function DroppableFolderZone({
@@ -136,7 +151,7 @@ export const SessionGroupSection = memo(function SessionGroupSection({
         <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">
           {isCollapsed ? (
             <>
-              <Icon name="folder" className="h-3.5 w-3.5 text-muted-foreground group-hover/gh:hidden" />
+              <Icon name="folder" className="h-3.5 w-3.5 group-hover/gh:hidden" style={{ color: getProjectColor(project.id) }} />
               <Icon name="arrow-right-s" className="h-3.5 w-3.5 text-muted-foreground hidden group-hover/gh:block" />
             </>
           ) : (
