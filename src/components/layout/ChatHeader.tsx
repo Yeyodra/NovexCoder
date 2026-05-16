@@ -3,7 +3,6 @@ import { useUIStore } from '@/stores/useUIStore';
 import { useAgentStore } from '@/stores/useAgentStore';
 import { Icon } from '@/components/icon/Icon';
 import { cn } from '@/lib/utils';
-import { ModelSelector } from '@/components/ui/ModelSelector';
 import { useDevice } from '@/lib/device';
 import { useLayoutStore } from '@/stores/useLayoutStore';
 
@@ -25,7 +24,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ onToggleLeftSidebar }) =
     <header className="border-b border-border">
       {/* Main header row */}
       <div className="flex items-center justify-between px-4 py-2">
-        {/* Left: sidebar toggle + model/agent info */}
+        {/* Left: sidebar toggle + agent info */}
         <div className="flex items-center gap-2 min-w-0">
           {onToggleLeftSidebar && (
             <button
@@ -39,8 +38,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ onToggleLeftSidebar }) =
               <Icon name="align-justify" className="h-4 w-4" />
             </button>
           )}
-
-          <ModelSelector />
 
           <span className="text-xs px-1.5 py-0.5 rounded bg-accent text-muted-foreground">
             {selectedAgentType}
