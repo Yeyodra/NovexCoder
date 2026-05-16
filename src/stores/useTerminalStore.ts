@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ShellInfo } from '@/types/shell';
 
 export type TerminalLifecycle = 'creating' | 'running' | 'exited';
 
@@ -7,12 +8,13 @@ export interface TerminalTab {
   sessionId: string | null;
   label: string;
   lifecycle: TerminalLifecycle;
+  shell?: ShellInfo;
 }
 
 interface TerminalState {
   tabs: TerminalTab[];
   activeTabId: string | null;
-  createTab: () => string;
+  createTab: (shell?: ShellInfo) => string;
   closeTab: (tabId: string) => void;
   setActiveTab: (tabId: string) => void;
   setTabSessionId: (tabId: string, sessionId: string) => void;
@@ -23,10 +25,11 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   tabs: [],
   activeTabId: null,
 
-  createTab: () => {
+  createTab: (shell?: ShellInfo) => {
     const id = crypto.randomUUID();
-    const label = `Terminal ${get().tabs.length + 1}`;
-    const tab: TerminalTab = { id, sessionId: null, label, lifecycle: 'creating' };
+    const tabNumber = get().tabs.length + 1;
+    const label = shell ? `${shell.name} ${tabNumber}` : `Terminal ${tabNumber}`;
+    const tab: TerminalTab = { id, sessionId: null, label, lifecycle: 'creating', shell };
     set((s) => ({ tabs: [...s.tabs, tab], activeTabId: id }));
     return id;
   },

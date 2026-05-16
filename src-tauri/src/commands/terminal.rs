@@ -1,6 +1,10 @@
 use tauri::{AppHandle, State};
 
+use crate::models::ShellInfo;
+use crate::services::shell_service;
+use crate::services::settings_service;
 use crate::services::terminal_service::TerminalService;
+use crate::state::AppState;
 
 #[tauri::command]
 pub async fn create_terminal(
@@ -9,9 +13,11 @@ pub async fn create_terminal(
     cwd: Option<String>,
     cols: u16,
     rows: u16,
+    shell: Option<String>,
+    shell_id: Option<String>,
 ) -> Result<String, String> {
     terminal_service
-        .create_session(app_handle, cwd, cols, rows)
+        .create_session(app_handle, cwd, cols, rows, shell, shell_id)
         .map_err(|e| e.to_string())
 }
 
@@ -87,4 +93,23 @@ pub async fn open_terminal(path: String) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_available_shells() -> Result<Vec<ShellInfo>, String> {
+    Ok(shell_service::detect_shells())
+}
+
+#[tauri::command]
+pub async fn get_default_shell(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    settings_service::get_setting(state.pool(), "default_shell")
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn set_default_shell(state: State<'_, AppState>, shell_id: String) -> Result<(), String> {
+    settings_service::set_setting(state.pool(), "default_shell", &shell_id)
+        .await
+        .map_err(|e| e.to_string())
 }
