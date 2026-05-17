@@ -24,6 +24,8 @@ pub enum AppError {
     Internal(String),
     #[error("Cancelled")]
     Cancelled,
+    #[error("Session already has an active operation")]
+    SessionBusy,
 }
 
 impl From<AppError> for String {
@@ -98,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_error_to_string() {
-        let err: String = AppError::NotFound("test").into();
+        let err: String = AppError::NotFound("test".to_string()).into();
         assert_eq!(err, "Not found: test");
     }
 }

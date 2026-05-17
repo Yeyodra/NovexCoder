@@ -26,6 +26,16 @@ import { useDevice } from '@/lib/device';
 import { SessionSidebar } from '@/components/sidebar/SessionSidebar';
 import { AgentConfig, AgentRunWithTools, AgentType, Message, PermissionRequest, Project, Provider, ProviderModelConfig, Session, ToolCall } from '@/types';
 
+interface ToolCallEventPayload {
+  sessionId: string;
+  toolCallId: string;
+  toolName: string;
+  toolInput?: string;
+  toolOutput?: string;
+  isError?: boolean;
+  durationMs?: number;
+}
+
 
 export const AppShell: React.FC = () => {
   const { addMessage, appendStreamToken, setStreaming, clearStreaming, setMessages } = useChatStore();
@@ -332,6 +342,57 @@ export const AppShell: React.FC = () => {
         setPendingPermission(req);
       });
 
+      // Chat tool call events
+      const unlistenChatToolStarted = await listen<ToolCallEventPayload>(
+        'chat-tool-call-started',
+        (event) => {
+          const { sessionId, toolCallId, toolName, toolInput } = event.payload;
+          const { addToolCall } = useChatStore.getState();
+          addToolCall('streaming', {
+            id: toolCallId,
+            sessionId,
+            messageId: 'streaming',
+            toolName,
+            toolInput: toolInput || '',
+            toolOutput: null,
+            isError: false,
+            status: 'running',
+            durationMs: null,
+            createdAt: new Date().toISOString(),
+            completedAt: null,
+          });
+        }
+      );
+
+      const unlistenChatToolCompleted = await listen<ToolCallEventPayload>(
+        'chat-tool-call-completed',
+        (event) => {
+          const { toolCallId, toolOutput, isError, durationMs } = event.payload;
+          const { updateToolCall } = useChatStore.getState();
+          updateToolCall('streaming', toolCallId, {
+            toolOutput: toolOutput || null,
+            isError: isError || false,
+            status: isError ? 'error' : 'completed',
+            durationMs: durationMs || null,
+            completedAt: new Date().toISOString(),
+          });
+        }
+      );
+
+      const unlistenChatToolError = await listen<ToolCallEventPayload>(
+        'chat-tool-call-error',
+        (event) => {
+          const { toolCallId, toolOutput } = event.payload;
+          const { updateToolCall } = useChatStore.getState();
+          updateToolCall('streaming', toolCallId, {
+            toolOutput: toolOutput || null,
+            isError: true,
+            status: 'error',
+            completedAt: new Date().toISOString(),
+          });
+        }
+      );
+
       localUnlisten.push(
         unlistenChatDone,
         unlistenChatError,
@@ -342,6 +403,9 @@ export const AppShell: React.FC = () => {
         unlistenAgentDone,
         unlistenAgentError,
         unlistenPermission,
+        unlistenChatToolStarted,
+        unlistenChatToolCompleted,
+        unlistenChatToolError,
       );
 
       if (cancelled) {

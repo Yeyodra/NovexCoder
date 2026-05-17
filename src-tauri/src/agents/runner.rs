@@ -16,9 +16,11 @@ use uuid::Uuid;
 
 use crate::agents::prompts::get_prompt;
 use crate::error::{AppError, AppResult};
+use crate::services::sse_parser::{SseEvent, SseParser};
+use crate::services::tool_call_service;
 use crate::services::{now_rfc3339, provider_service};
 use crate::state::PermissionState;
-use crate::tools::{ToolCall, ToolExecutor, ToolName};
+use crate::tools::{ToolCall, ToolExecutor};
 
 const MAX_REACT_ITERATIONS: usize = 10;
 const SYNTHESIS_REACT_ITERATIONS: usize = 8;
@@ -987,7 +989,7 @@ impl AgentRunner {
             }
         }
 
-        let execution = if let Some(tool_name) = map_tool_name(&tool_call.name) {
+        let execution = if let Some(tool_name) = tool_call_service::map_tool_name(&tool_call.name) {
             let result = executor
                 .execute(ToolCall {
                     tool: tool_name,
@@ -1188,144 +1190,90 @@ impl AgentRunner {
         agent_run_id: &str,
         token_sink: &S,
     ) -> AppResult<LLMTurn> {
-        let mut stream = response.bytes_stream();
-        let mut line_buffer = String::new();
+        let mut parser = SseParser::new(response);
         let mut output = String::new();
         let mut stop_reason: Option<String> = None;
-        let mut pending_calls: HashMap<usize, StreamingToolCall> = HashMap::new();
+        let mut pending_calls: Vec<tool_call_service::PendingToolCall> = Vec::new();
 
-        while let Some(chunk) = stream.next().await {
-            line_buffer.push_str(&String::from_utf8_lossy(&chunk?));
+        while let Some(event) = parser.next_event(&self.cancel_token).await {
+            match event? {
+                SseEvent::Data(payload) => {
+                    let value: Value = serde_json::from_str(&payload)?;
+                    let Some(choice) = value
+                        .get("choices")
+                        .and_then(Value::as_array)
+                        .and_then(|items| items.first())
+                    else {
+                        continue;
+                    };
 
-            while let Some(pos) = line_buffer.find('\n') {
-                let mut line = line_buffer[..pos].to_string();
-                line_buffer.drain(..=pos);
-                if line.ends_with('\r') {
-                    let _ = line.pop();
-                }
+                    if let Some(reason) = choice.get("finish_reason").and_then(Value::as_str) {
+                        stop_reason = Some(reason.to_string());
+                    }
 
-                let should_stop = self.parse_openai_sse_line(
-                    &line,
-                    agent_run_id,
-                    token_sink,
-                    &mut output,
-                    &mut pending_calls,
-                    &mut stop_reason,
-                )?;
-
-                if should_stop {
-                    return finalize_llm_turn(output, pending_calls, stop_reason);
-                }
-            }
-        }
-
-        finalize_llm_turn(output, pending_calls, stop_reason)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn parse_openai_sse_line<S: TokenSink + Sync>(
-        &self,
-        line: &str,
-        agent_run_id: &str,
-        token_sink: &S,
-        output: &mut String,
-        pending_calls: &mut HashMap<usize, StreamingToolCall>,
-        stop_reason: &mut Option<String>,
-    ) -> AppResult<bool> {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            return Ok(false);
-        }
-
-        let Some(payload_raw) = trimmed.strip_prefix("data:") else {
-            return Ok(false);
-        };
-
-        let payload = payload_raw.trim();
-        if payload == "[DONE]" {
-            return Ok(true);
-        }
-
-        let value: Value = serde_json::from_str(payload)?;
-        let Some(choice) = value
-            .get("choices")
-            .and_then(Value::as_array)
-            .and_then(|items| items.first())
-        else {
-            return Ok(false);
-        };
-
-        if let Some(reason) = choice.get("finish_reason").and_then(Value::as_str) {
-            *stop_reason = Some(reason.to_string());
-        }
-
-        if let Some(token) = choice
-            .get("delta")
-            .and_then(|delta| delta.get("content"))
-            .and_then(Value::as_str)
-        {
-            output.push_str(token);
-            token_sink.send(token);
-            let _ = self.app_handle.emit(
-                "agent-token",
-                AgentTokenEvent {
-                    agent_run_id: agent_run_id.to_string(),
-                    token: token.to_string(),
-                },
-            );
-        }
-
-        if let Some(tool_calls) = choice
-            .get("delta")
-            .and_then(|delta| delta.get("tool_calls"))
-            .and_then(Value::as_array)
-        {
-            for chunk in tool_calls {
-                let index_u64 = chunk
-                    .get("index")
-                    .and_then(Value::as_u64)
-                    .ok_or_else(|| AppError::Json("OpenAI tool call chunk missing index".to_string()))?;
-                let index = usize::try_from(index_u64)
-                    .map_err(|_| AppError::Json("OpenAI tool call index overflow".to_string()))?;
-
-                let entry = pending_calls.entry(index).or_default();
-
-                if let Some(id) = chunk.get("id").and_then(Value::as_str) {
-                    entry.id = id.to_string();
-                }
-
-                if let Some(name) = chunk
-                    .get("function")
-                    .and_then(|function| function.get("name"))
-                    .and_then(Value::as_str)
-                {
-                    entry.name = name.to_string();
-                }
-
-                if let Some(arguments_chunk) = chunk
-                    .get("function")
-                    .and_then(|function| function.get("arguments"))
-                    .and_then(Value::as_str)
-                {
-                    if entry.arguments.is_empty() {
-                        entry.arguments.push_str(arguments_chunk);
-                    } else if arguments_chunk.starts_with(&entry.arguments) {
-                        entry.arguments = arguments_chunk.to_string();
-                    } else if entry.arguments == arguments_chunk
-                        || entry.arguments.ends_with(arguments_chunk)
+                    if let Some(token) = choice
+                        .get("delta")
+                        .and_then(|delta| delta.get("content"))
+                        .and_then(Value::as_str)
                     {
-                    } else if serde_json::from_str::<Value>(&entry.arguments).is_ok() {
-                        if serde_json::from_str::<Value>(arguments_chunk).is_ok() {
-                            entry.arguments = arguments_chunk.to_string();
+                        output.push_str(token);
+                        token_sink.send(token);
+                        let _ = self.app_handle.emit(
+                            "agent-token",
+                            AgentTokenEvent {
+                                agent_run_id: agent_run_id.to_string(),
+                                token: token.to_string(),
+                            },
+                        );
+                    }
+
+                    if let Some(tool_calls) = choice
+                        .get("delta")
+                        .and_then(|delta| delta.get("tool_calls"))
+                        .and_then(Value::as_array)
+                    {
+                        for chunk in tool_calls {
+                            let index = chunk
+                                .get("index")
+                                .and_then(Value::as_u64)
+                                .ok_or_else(|| {
+                                    AppError::Json(
+                                        "OpenAI tool call chunk missing index".to_string(),
+                                    )
+                                })?
+                                as usize;
+
+                            let id = chunk.get("id").and_then(Value::as_str).map(String::from);
+                            let name = chunk
+                                .get("function")
+                                .and_then(|f| f.get("name"))
+                                .and_then(Value::as_str)
+                                .map(String::from);
+                            let arguments = chunk
+                                .get("function")
+                                .and_then(|f| f.get("arguments"))
+                                .and_then(Value::as_str)
+                                .map(String::from);
+
+                            tool_call_service::accumulate_delta(
+                                &mut pending_calls,
+                                tool_call_service::ToolCallDelta {
+                                    index,
+                                    id,
+                                    name,
+                                    arguments,
+                                },
+                            );
                         }
-                    } else {
-                        entry.arguments.push_str(arguments_chunk);
                     }
                 }
+                SseEvent::Done => break,
+                SseEvent::Event { .. } => {}
             }
         }
 
-        Ok(false)
+        let finalized = tool_call_service::finalize_tool_calls(pending_calls);
+        finalize_llm_turn_from_service(output, finalized, stop_reason)
     }
 
     async fn stream_anthropic_tool_sse<S: TokenSink + Sync>(
@@ -1334,186 +1282,154 @@ impl AgentRunner {
         agent_run_id: &str,
         token_sink: &S,
     ) -> AppResult<LLMTurn> {
-        let mut stream = response.bytes_stream();
-        let mut line_buffer = String::new();
+        let mut parser = SseParser::new(response);
         let mut output = String::new();
         let mut stop_reason: Option<String> = None;
-        let mut pending_calls: HashMap<usize, StreamingToolCall> = HashMap::new();
+        let mut pending_calls: HashMap<usize, tool_call_service::PendingToolCall> = HashMap::new();
 
-        while let Some(chunk) = stream.next().await {
-            line_buffer.push_str(&String::from_utf8_lossy(&chunk?));
+        while let Some(event) = parser.next_event(&self.cancel_token).await {
+            match event? {
+                SseEvent::Done => break,
+                SseEvent::Data(payload) | SseEvent::Event { data: payload, .. } => {
+                    let value: Value = match serde_json::from_str(&payload) {
+                        Ok(v) => v,
+                        Err(_) => continue,
+                    };
 
-            while let Some(pos) = line_buffer.find('\n') {
-                let mut line = line_buffer[..pos].to_string();
-                line_buffer.drain(..=pos);
-                if line.ends_with('\r') {
-                    let _ = line.pop();
-                }
+                    let event_type =
+                        value.get("type").and_then(Value::as_str).unwrap_or_default();
 
-                let should_stop = self.parse_anthropic_sse_line(
-                    &line,
-                    agent_run_id,
-                    token_sink,
-                    &mut output,
-                    &mut pending_calls,
-                    &mut stop_reason,
-                )?;
+                    match event_type {
+                        "content_block_start" => {
+                            let is_tool_use = value
+                                .get("content_block")
+                                .and_then(|block| block.get("type"))
+                                .and_then(Value::as_str)
+                                == Some("tool_use");
 
-                if should_stop {
-                    return finalize_llm_turn(output, pending_calls, stop_reason);
-                }
-            }
-        }
+                            if is_tool_use {
+                                let index_u64 =
+                                    value.get("index").and_then(Value::as_u64).ok_or_else(
+                                        || {
+                                            AppError::Json(
+                                            "Anthropic tool_use content_block_start missing index"
+                                                .to_string(),
+                                        )
+                                        },
+                                    )?;
+                                let index = usize::try_from(index_u64).map_err(|_| {
+                                    AppError::Json(
+                                        "Anthropic tool index overflow".to_string(),
+                                    )
+                                })?;
 
-        finalize_llm_turn(output, pending_calls, stop_reason)
-    }
+                                let id = value
+                                    .get("content_block")
+                                    .and_then(|block| block.get("id"))
+                                    .and_then(Value::as_str)
+                                    .ok_or_else(|| {
+                                        AppError::Json(
+                                            "Anthropic tool_use content_block_start missing id"
+                                                .to_string(),
+                                        )
+                                    })?
+                                    .to_string();
 
-    #[allow(clippy::too_many_arguments)]
-    fn parse_anthropic_sse_line<S: TokenSink + Sync>(
-        &self,
-        line: &str,
-        agent_run_id: &str,
-        token_sink: &S,
-        output: &mut String,
-        pending_calls: &mut HashMap<usize, StreamingToolCall>,
-        stop_reason: &mut Option<String>,
-    ) -> AppResult<bool> {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            return Ok(false);
-        }
+                                let name = value
+                                    .get("content_block")
+                                    .and_then(|block| block.get("name"))
+                                    .and_then(Value::as_str)
+                                    .ok_or_else(|| {
+                                        AppError::Json(
+                                            "Anthropic tool_use content_block_start missing name"
+                                                .to_string(),
+                                        )
+                                    })?
+                                    .to_string();
 
-        if let Some(event_name) = trimmed.strip_prefix("event:") {
-            if event_name.trim() == "message_stop" {
-                return Ok(true);
-            }
-            return Ok(false);
-        }
+                                pending_calls.insert(
+                                    index,
+                                    tool_call_service::PendingToolCall {
+                                        id,
+                                        name,
+                                        arguments: String::new(),
+                                    },
+                                );
+                            }
+                        }
+                        "content_block_delta" => {
+                            if let Some(token) = value
+                                .get("delta")
+                                .and_then(|delta| delta.get("text"))
+                                .and_then(Value::as_str)
+                            {
+                                output.push_str(token);
+                                token_sink.send(token);
+                                let _ = self.app_handle.emit(
+                                    "agent-token",
+                                    AgentTokenEvent {
+                                        agent_run_id: agent_run_id.to_string(),
+                                        token: token.to_string(),
+                                    },
+                                );
+                            }
 
-        let Some(payload_raw) = trimmed.strip_prefix("data:") else {
-            return Ok(false);
-        };
-        let payload = payload_raw.trim();
+                            let is_input_json_delta = value
+                                .get("delta")
+                                .and_then(|delta| delta.get("type"))
+                                .and_then(Value::as_str)
+                                == Some("input_json_delta");
 
-        let value: Value = match serde_json::from_str(payload) {
-            Ok(value) => value,
-            Err(_) => return Ok(false),
-        };
+                            if is_input_json_delta {
+                                let index_u64 =
+                                    value.get("index").and_then(Value::as_u64).ok_or_else(
+                                        || {
+                                            AppError::Json(
+                                                "Anthropic input_json_delta missing index"
+                                                    .to_string(),
+                                            )
+                                        },
+                                    )?;
+                                let index = usize::try_from(index_u64).map_err(|_| {
+                                    AppError::Json(
+                                        "Anthropic input_json_delta index overflow".to_string(),
+                                    )
+                                })?;
 
-        let event_type = value.get("type").and_then(Value::as_str).unwrap_or_default();
-
-        match event_type {
-            "content_block_start" => {
-                let is_tool_use = value
-                    .get("content_block")
-                    .and_then(|block| block.get("type"))
-                    .and_then(Value::as_str)
-                    == Some("tool_use");
-
-                if is_tool_use {
-                    let index_u64 = value
-                        .get("index")
-                        .and_then(Value::as_u64)
-                        .ok_or_else(|| {
-                            AppError::Json(
-                                "Anthropic tool_use content_block_start missing index".to_string(),
-                            )
-                        })?;
-                    let index = usize::try_from(index_u64)
-                        .map_err(|_| AppError::Json("Anthropic tool index overflow".to_string()))?;
-
-                    let id = value
-                        .get("content_block")
-                        .and_then(|block| block.get("id"))
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| {
-                            AppError::Json(
-                                "Anthropic tool_use content_block_start missing id".to_string(),
-                            )
-                        })?
-                        .to_string();
-
-                    let name = value
-                        .get("content_block")
-                        .and_then(|block| block.get("name"))
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| {
-                            AppError::Json(
-                                "Anthropic tool_use content_block_start missing name".to_string(),
-                            )
-                        })?
-                        .to_string();
-
-                    pending_calls.insert(
-                        index,
-                        StreamingToolCall {
-                            id,
-                            name,
-                            arguments: String::new(),
-                        },
-                    );
-                }
-            }
-            "content_block_delta" => {
-                if let Some(token) = value
-                    .get("delta")
-                    .and_then(|delta| delta.get("text"))
-                    .and_then(Value::as_str)
-                {
-                    output.push_str(token);
-                    token_sink.send(token);
-                    let _ = self.app_handle.emit(
-                        "agent-token",
-                        AgentTokenEvent {
-                            agent_run_id: agent_run_id.to_string(),
-                            token: token.to_string(),
-                        },
-                    );
-                }
-
-                let is_input_json_delta = value
-                    .get("delta")
-                    .and_then(|delta| delta.get("type"))
-                    .and_then(Value::as_str)
-                    == Some("input_json_delta");
-
-                if is_input_json_delta {
-                    let index_u64 = value
-                        .get("index")
-                        .and_then(Value::as_u64)
-                        .ok_or_else(|| {
-                            AppError::Json(
-                                "Anthropic input_json_delta missing index".to_string(),
-                            )
-                        })?;
-                    let index = usize::try_from(index_u64).map_err(|_| {
-                        AppError::Json("Anthropic input_json_delta index overflow".to_string())
-                    })?;
-
-                    if let Some(partial_json) = value
-                        .get("delta")
-                        .and_then(|delta| delta.get("partial_json"))
-                        .and_then(Value::as_str)
-                    {
-                        let entry = pending_calls.entry(index).or_default();
-                        entry.arguments.push_str(partial_json);
+                                if let Some(partial_json) = value
+                                    .get("delta")
+                                    .and_then(|delta| delta.get("partial_json"))
+                                    .and_then(Value::as_str)
+                                {
+                                    let entry =
+                                        pending_calls.entry(index).or_default();
+                                    entry.arguments.push_str(partial_json);
+                                }
+                            }
+                        }
+                        "message_delta" => {
+                            if let Some(reason) = value
+                                .get("delta")
+                                .and_then(|delta| delta.get("stop_reason"))
+                                .and_then(Value::as_str)
+                            {
+                                stop_reason = Some(reason.to_string());
+                            }
+                        }
+                        "message_stop" => break,
+                        _ => {}
                     }
                 }
             }
-            "message_delta" => {
-                if let Some(reason) = value
-                    .get("delta")
-                    .and_then(|delta| delta.get("stop_reason"))
-                    .and_then(Value::as_str)
-                {
-                    *stop_reason = Some(reason.to_string());
-                }
-            }
-            "message_stop" => return Ok(true),
-            _ => {}
         }
 
-        Ok(false)
+        // Convert HashMap to sorted Vec<PendingToolCall> and finalize
+        let mut sorted: Vec<(usize, tool_call_service::PendingToolCall)> =
+            pending_calls.into_iter().collect();
+        sorted.sort_by_key(|(index, _)| *index);
+        let finalized =
+            tool_call_service::finalize_tool_calls(sorted.into_iter().map(|(_, p)| p).collect());
+        finalize_llm_turn_from_service(output, finalized, stop_reason)
     }
 }
 
@@ -1530,12 +1446,6 @@ struct ParsedToolCall {
     input: Value,
 }
 
-#[derive(Debug, Clone, Default)]
-struct StreamingToolCall {
-    id: String,
-    name: String,
-    arguments: String,
-}
 
 #[derive(Debug, Clone)]
 struct ToolExecutionOutcome {
@@ -1731,16 +1641,15 @@ fn summarize_html_widget(html: &str) -> String {
     summary
 }
 
-fn finalize_llm_turn(
+
+/// Convert finalized tool calls from the shared service format into agent LLMTurn.
+fn finalize_llm_turn_from_service(
     output: String,
-    pending_calls: HashMap<usize, StreamingToolCall>,
+    service_calls: Vec<tool_call_service::ParsedToolCall>,
     _stop_reason: Option<String>,
 ) -> AppResult<LLMTurn> {
-    let mut sorted: Vec<(usize, StreamingToolCall)> = pending_calls.into_iter().collect();
-    sorted.sort_by_key(|(index, _)| *index);
-
     let mut tool_calls = Vec::new();
-    for (_, call) in sorted {
+    for call in service_calls {
         if call.id.is_empty() || call.name.is_empty() {
             continue;
         }
@@ -1899,7 +1808,7 @@ fn push_anthropic_message(out: &mut Vec<Value>, role: &str, mut blocks: Vec<Valu
     }));
 }
 
-fn openai_tool_definitions() -> Vec<Value> {
+pub(crate) fn openai_tool_definitions() -> Vec<Value> {
     vec![
         json!({
             "type": "function",
@@ -1990,10 +1899,99 @@ fn openai_tool_definitions() -> Vec<Value> {
                 }
             }
         }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "fetch_url",
+                "description": "Fetch content from a URL via HTTP GET. Returns plain text (HTML tags stripped if response is HTML).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "description": "The URL to fetch"
+                        }
+                    },
+                    "required": ["url"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "edit_file",
+                "description": "Apply a targeted string replacement in a file. The old_string must appear exactly once.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "File path relative to project root"
+                        },
+                        "old_string": {
+                            "type": "string",
+                            "description": "The exact string to find and replace"
+                        },
+                        "new_string": {
+                            "type": "string",
+                            "description": "The replacement string"
+                        }
+                    },
+                    "required": ["path", "old_string", "new_string"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "replace_in_file",
+                "description": "Find and replace using a regex pattern in a file.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "File path relative to project root"
+                        },
+                        "pattern": {
+                            "type": "string",
+                            "description": "Regex pattern to match"
+                        },
+                        "replacement": {
+                            "type": "string",
+                            "description": "Replacement string (supports regex capture groups)"
+                        },
+                        "count": {
+                            "type": "integer",
+                            "description": "Max number of replacements. If omitted, replaces all."
+                        }
+                    },
+                    "required": ["path", "pattern", "replacement"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "batch_read_files",
+                "description": "Read multiple files in one call (max 5). Each file is truncated to 4000 chars.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "paths": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Array of file paths relative to project root"
+                        }
+                    },
+                    "required": ["paths"]
+                }
+            }
+        }),
     ]
 }
 
-fn anthropic_tool_definitions() -> Vec<Value> {
+pub(crate) fn anthropic_tool_definitions() -> Vec<Value> {
     openai_tool_definitions()
         .into_iter()
         .filter_map(|tool| {
@@ -2011,17 +2009,7 @@ fn anthropic_tool_definitions() -> Vec<Value> {
         .collect()
 }
 
-fn map_tool_name(name: &str) -> Option<ToolName> {
-    match name {
-        "read_file" => Some(ToolName::ReadFile),
-        "write_file" => Some(ToolName::WriteFile),
-        "list_dir" => Some(ToolName::ListDir),
-        "search_files" => Some(ToolName::SearchFiles),
-        "run_command" => Some(ToolName::RunCommand),
-        "web_search" => Some(ToolName::WebSearch),
-        _ => None,
-    }
-}
+
 
 #[derive(Debug, Clone)]
 struct SubagentTask {

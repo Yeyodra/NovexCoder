@@ -34,6 +34,7 @@ pub fn run() -> Result<(), AppError> {
             commands::chat::generate_title,
             commands::chat::generate_excalidraw,
             commands::chat::cancel_chat,
+            commands::chat::get_chat_tool_calls,
             commands::provider::list_providers,
             commands::provider::create_provider,
             commands::provider::update_provider,

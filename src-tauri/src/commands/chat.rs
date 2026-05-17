@@ -1,7 +1,12 @@
 use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
 
-use crate::{error::AppResult, models::Message, services::chat_service, state::AppState};
+use crate::{
+    error::AppResult,
+    models::{ChatToolCall, Message},
+    services::{chat_service, chat_tool_call_service},
+    state::AppState,
+};
 
 #[tauri::command]
 pub async fn get_messages(
@@ -21,7 +26,7 @@ pub async fn send_message(
     on_token: Channel<String>,
     app_handle: AppHandle,
 ) -> AppResult<()> {
-    let cancel_token = state.cancellations.register(format!("chat:{session_id}"));
+    let cancel_token = state.cancellations.register(format!("chat:{session_id}"))?;
 
     let result = chat_service::send_message(
         state.pool(),
@@ -79,4 +84,12 @@ pub async fn generate_title(
         model_id.as_deref(),
     )
     .await
+}
+
+#[tauri::command]
+pub async fn get_chat_tool_calls(
+    state: State<'_, AppState>,
+    message_id: String,
+) -> AppResult<Vec<ChatToolCall>> {
+    chat_tool_call_service::list_by_message(state.pool(), &message_id).await
 }

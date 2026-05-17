@@ -9,9 +9,11 @@ pub mod session;
 pub mod session_folder;
 pub mod drawing;
 pub mod shell;
+pub mod chat_tool_call;
 pub mod tool_call;
 
 pub use agent_config::AgentConfig;
+pub use chat_tool_call::ChatToolCall;
 pub use custom_agent::CustomAgent;
 pub use drawing::Drawing;
 pub use agent_run::AgentRun;

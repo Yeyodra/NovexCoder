@@ -48,7 +48,16 @@ pub async fn run_agent(
     request: RunAgentRequest,
     on_token: Channel<String>,
 ) -> AppResult<()> {
-    let cancel_token = state.cancellations.register(format!("agent:{}", request.session_id));
+    // Acquire session guard — prevents concurrent runs on same session
+    state.session_guard.acquire(&request.session_id)?;
+
+    let cancel_token = match state.cancellations.register(format!("agent:{}", request.session_id)) {
+        Ok(token) => token,
+        Err(e) => {
+            state.session_guard.release(&request.session_id);
+            return Err(e);
+        }
+    };
 
     let runner = AgentRunner::new(
         state.pool().clone(),
@@ -71,6 +80,7 @@ pub async fn run_agent(
 
     // Cleanup
     state.cancellations.remove(&format!("agent:{}", request.session_id));
+    state.session_guard.release(&request.session_id);
 
     // Swallow Cancelled errors — they are expected when user stops generation
     match result {

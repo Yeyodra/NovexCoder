@@ -166,3 +166,17 @@ export interface PermissionRequest {
   agentType: AgentType;
   agentRunId: string;
 }
+
+export interface ChatToolCall {
+  id: string;
+  sessionId: string;
+  messageId: string;
+  toolName: string;
+  toolInput: string;
+  toolOutput: string | null;
+  isError: boolean;
+  status: 'pending' | 'running' | 'completed' | 'error' | 'cancelled';
+  durationMs: number | null;
+  createdAt: string;
+  completedAt: string | null;
+}
